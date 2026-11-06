@@ -184,7 +184,7 @@ async function runVerification() {
 }
 
 // Helper fetch client
-async function request(endpoint: string, method: string, body: any = null, token: string | null = null) {
+async function request(endpoint: string, method: string, body: any = null, token: string | null = null): Promise<any> {
   const headers: any = {
     "Content-Type": "application/json"
   };
@@ -215,7 +215,7 @@ async function login(email: string, password: string): Promise<string> {
   if (!res.ok) {
     throw new Error(`Login failed for ${email}`);
   }
-  const data = await res.json();
+  const data: any = await res.json();
   return data.token;
 }
 

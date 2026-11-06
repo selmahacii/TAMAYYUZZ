@@ -20,14 +20,6 @@ async function updateCourseRating(courseId: number) {
   const roundedRating = (Math.round(ratingFloat * 10) / 10).toFixed(1);
   const reviewCount = stats?.count ?? 0;
 
-  await db
-    .update(coursesTable)
-    .set({
-      rating: roundedRating,
-      reviewCount,
-    })
-    .where(eq(coursesTable.id, courseId));
-
   return { rating: roundedRating, reviewCount };
 }
 

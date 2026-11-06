@@ -55,7 +55,7 @@ async function verifyCertificateTemplates() {
   console.log("================================================");
 }
 
-async function request(endpoint: string, method: string, body: any = null, token: string | null = null) {
+async function request(endpoint: string, method: string, body: any = null, token: string | null = null): Promise<any> {
   const headers: any = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   
@@ -77,7 +77,7 @@ async function login(email: string, password: string): Promise<string> {
     body: JSON.stringify({ email, password })
   });
   if (!res.ok) throw new Error("Login failed");
-  const data = await res.json();
+  const data: any = await res.json();
   return data.token;
 }
 

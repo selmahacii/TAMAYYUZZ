@@ -162,7 +162,7 @@ router.post("/payments/webhook", async (req, res): Promise<void> => {
           purchaseId: purchase.id,
           amount: commissionAmount,
           currency: purchase.currency,
-          rate: String(commissionRate),
+          ratePercent: "70.00",
           isPaid: false,
           status: "pending",
         });

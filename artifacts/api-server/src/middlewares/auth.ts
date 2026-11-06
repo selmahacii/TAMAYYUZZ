@@ -15,6 +15,8 @@ export const JWT_SECRET = process.env.SESSION_SECRET ?? "dev-secret-change-me";
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: number;
+    name?: string;
+    avatarUrl?: string | null;
     role: string;
     isApproved: boolean;
     tokenVersion: number;
@@ -58,6 +60,8 @@ export async function requireAuth(
     const [user] = await db
       .select({
         id: usersTable.id,
+        name: usersTable.name,
+        avatarUrl: usersTable.avatarUrl,
         role: usersTable.role,
         isApproved: usersTable.isApproved,
         tokenVersion: usersTable.tokenVersion,
