@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, lessonsTable, coursesTable } from "@workspace/db";
+import { db, lessonsTable, coursesTable, auditLogsTable } from "@workspace/db";
 import {
   GetCourseLessonsParams,
   CreateLessonParams,
@@ -78,6 +78,20 @@ router.post("/courses/:id/lessons", requireRole("coach"), async (req: Authentica
     })
     .returning();
 
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user.id,
+      action: "CREATE_LESSON",
+      entity: "lesson",
+      entityId: lesson.id,
+      details: { courseId: params.data.id, title: lesson.title, type: lesson.type },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on lesson create:", e);
+  }
+
   res.status(201).json(formatLesson(lesson));
 });
 
@@ -119,6 +133,20 @@ router.patch("/courses/:id/lessons/:lessonId", requireRole("coach"), async (req:
     .where(eq(lessonsTable.id, params.data.lessonId))
     .returning();
 
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user.id,
+      action: "UPDATE_LESSON",
+      entity: "lesson",
+      entityId: updated.id,
+      details: { courseId: params.data.id, title: updated.title },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on lesson update:", e);
+  }
+
   res.json(formatLesson(updated));
 });
 
@@ -132,6 +160,21 @@ router.delete("/courses/:id/lessons/:lessonId", requireRole("coach"), async (req
   if (!course || course.coachId !== req.user.id) { res.status(403).json({ error: "Forbidden" }); return; }
 
   await db.delete(lessonsTable).where(and(eq(lessonsTable.id, params.data.lessonId), eq(lessonsTable.courseId, params.data.id)));
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user.id,
+      action: "DELETE_LESSON",
+      entity: "lesson",
+      entityId: params.data.lessonId,
+      details: { courseId: params.data.id },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on lesson delete:", e);
+  }
+
   res.json({ message: "Lesson deleted" });
 });
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, coursesTable, enrollmentsTable, lessonsTable, progressTable, examAttemptsTable, type FinalExam } from "@workspace/db";
+import { db, coursesTable, enrollmentsTable, lessonsTable, progressTable, examAttemptsTable, auditLogsTable, type FinalExam } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, AuthenticatedRequest } from "../middlewares/auth";
 import { issueCertificate, buildCertificateResponse } from "../lib/certificateIssuance";
@@ -65,6 +65,20 @@ router.post("/courses/:id/exam/submit", requireAuth, async (req: AuthenticatedRe
   const passed = score >= exam.passingScore;
 
   await db.insert(examAttemptsTable).values({ userId, courseId, score, passed });
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId,
+      action: passed ? "EXAM_PASSED" : "EXAM_FAILED",
+      entity: "exam_attempt",
+      entityId: courseId,
+      details: { courseId, score, passed, passingScore: exam.passingScore },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on exam attempt:", e);
+  }
 
   const certificate = passed ? await buildCertificateResponse(await issueCertificate(userId, courseId, score)) : null;
 

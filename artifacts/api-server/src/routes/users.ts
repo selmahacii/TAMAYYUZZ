@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, auditLogsTable } from "@workspace/db";
 import { UpdateProfileBody } from "@workspace/api-zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 
@@ -74,6 +74,20 @@ router.patch("/users/profile", requireAuth, async (req: AuthenticatedRequest, re
     .set(updates)
     .where(eq(usersTable.id, req.user.id))
     .returning();
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user.id,
+      action: "UPDATE_PROFILE",
+      entity: "user",
+      entityId: user.id,
+      details: { updatedFields: Object.keys(updates) },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on update profile:", e);
+  }
 
   res.json(formatUser(user));
 });

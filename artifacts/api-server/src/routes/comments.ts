@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, asc, and } from "drizzle-orm";
-import { db, lessonCommentsTable, lessonsTable, coursesTable, usersTable, enrollmentsTable } from "@workspace/db";
+import { db, lessonCommentsTable, lessonsTable, coursesTable, usersTable, enrollmentsTable, auditLogsTable } from "@workspace/db";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import { createNotification } from "./notifications";
 
@@ -125,6 +125,20 @@ router.post("/lessons/:id/comments", requireAuth, async (req: AuthenticatedReque
       content: content.trim(),
     })
     .returning();
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId,
+      action: parentId ? "REPLY_COMMENT" : "POST_COMMENT",
+      entity: "lesson_comment",
+      entityId: comment.id,
+      details: { lessonId, courseId: lesson.courseId, parentId },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on comment:", e);
+  }
 
   // Send notifications
   if (parentId) {

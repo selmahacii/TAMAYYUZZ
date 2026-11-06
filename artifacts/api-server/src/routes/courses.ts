@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, like, sql, count } from "drizzle-orm";
-import { db, coursesTable, usersTable, enrollmentsTable, lessonsTable, purchasesTable, chaptersTable, certificateTemplatesTable, type FinalExam } from "@workspace/db";
+import { db, coursesTable, usersTable, enrollmentsTable, lessonsTable, purchasesTable, chaptersTable, certificateTemplatesTable, auditLogsTable, type FinalExam } from "@workspace/db";
 import {
   GetCoursesQueryParams,
   CreateCourseBody,
@@ -104,6 +104,20 @@ router.post("/courses", requireRole("coach"), async (req: AuthenticatedRequest, 
     .insert(coursesTable)
     .values({ ...parsed.data, coachId: req.user.id })
     .returning();
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user.id,
+      action: "CREATE_COURSE",
+      entity: "course",
+      entityId: course.id,
+      details: { title: course.title, category: course.category, price: course.price },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on course create:", e);
+  }
 
   const [coach] = await db.select().from(usersTable).where(eq(usersTable.id, req.user.id));
   res.status(201).json(formatCourse(course, coach.name, 0));
@@ -288,6 +302,20 @@ router.patch("/courses/:id", requireRole("coach"), async (req: AuthenticatedRequ
     .where(eq(coursesTable.id, params.data.id))
     .returning();
 
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user.id,
+      action: "UPDATE_COURSE",
+      entity: "course",
+      entityId: updated.id,
+      details: { title: updated.title, changes: Object.keys(parsed.data) },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on course update:", e);
+  }
+
   const [coach] = await db.select().from(usersTable).where(eq(usersTable.id, req.user.id));
   const [countRow] = await db
     .select({ enrollmentCount: count(enrollmentsTable.id) })
@@ -308,6 +336,21 @@ router.delete("/courses/:id", requireRole("coach"), async (req: AuthenticatedReq
   if (course.coachId !== req.user.id) { res.status(403).json({ error: "Forbidden" }); return; }
 
   await db.delete(coursesTable).where(eq(coursesTable.id, params.data.id));
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user.id,
+      action: "DELETE_COURSE",
+      entity: "course",
+      entityId: params.data.id,
+      details: { title: course.title },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on course delete:", e);
+  }
+
   res.json({ message: "Course deleted" });
 });
 

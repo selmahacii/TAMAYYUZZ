@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, count, inArray } from "drizzle-orm";
-import { db, enrollmentsTable, coursesTable, usersTable } from "@workspace/db";
+import { db, enrollmentsTable, coursesTable, usersTable, auditLogsTable } from "@workspace/db";
 import { EnrollCourseBody } from "@workspace/api-zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import { formatCourse } from "./courses";
@@ -91,6 +91,20 @@ router.post("/enrollments", requireAuth, async (req: AuthenticatedRequest, res):
     .insert(enrollmentsTable)
     .values({ userId: req.user.id, courseId })
     .returning();
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user.id,
+      action: "ENROLL_COURSE",
+      entity: "enrollment",
+      entityId: enrollment.id,
+      details: { courseId, courseTitle: course.title },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on enrollment:", e);
+  }
 
   const [coach] = await db
     .select()

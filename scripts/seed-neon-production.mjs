@@ -28,6 +28,9 @@ async function query(text, params) {
 console.log("Connected to Neon DB via Pool. Starting complete production seed...");
 
 const passwordHash = await bcrypt.hash("Password123!", 10);
+const passAdmin = await bcrypt.hash("Admin@2026!", 10);
+const passCoach = await bcrypt.hash("Coach123!", 10);
+const passStudent = await bcrypt.hash("Student123!", 10);
 
 // 1. Clear existing data
 await query(`
@@ -55,8 +58,12 @@ console.log("✔ Old data wiped cleanly.");
 // 2. Insert Users
 const userValues = [
   ['Admin Tamayuz', 'admin@tamayuz.dz', passwordHash, 'admin', true, 'Administrateur Principal de la Plateforme Tamayuz.', 'Management'],
+  ['Super Admin', 'superadmin@tamayuz.com', passAdmin, 'admin', true, 'Plateforme Super Administrateur.', 'Management'],
   ['Dr. Sofiane Meziani', 'coach@tamayuz.dz', passwordHash, 'coach', true, "Expert en Ingénierie Logicielle & Intelligence Artificielle avec plus de 10 ans d'expérience.", 'Technology'],
+  ['Ahmed Coach', 'coach.ahmed@tamayuz.com', passCoach, 'coach', true, "Formateur certifié Cloud & Web.", 'Technology'],
+  ['Coach En Attente', 'coach.pending@tamayuz.com', passCoach, 'coach', false, "Formateur en attente d'approbation.", 'Technology'],
   ['Yassine Mansouri', 'student@tamayuz.dz', passwordHash, 'student', true, "Étudiant passionné par le développement web et l'IA.", 'Technology'],
+  ['Yassine Student', 'student.yassine@tamayuz.com', passStudent, 'student', true, "Étudiant inscrit aux parcours avancés.", 'Technology'],
   ['Amina Benali', 'etudiant@tamayuz.dz', passwordHash, 'student', true, 'Débutante motivée en reconversion professionnelle.', 'Marketing'],
   ['Nadia Kaci (Coach en attente)', 'coach.pending@tamayuz.dz', passwordHash, 'coach', false, 'Formatrice en design graphique en cours de validation pédagogique.', 'Design']
 ];

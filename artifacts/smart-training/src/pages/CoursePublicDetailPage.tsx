@@ -61,6 +61,11 @@ export default function CoursePublicDetailPage() {
   const [newComment, setNewComment] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
+  const realReviewCount = realReviews.length;
+  const realAvgRating = realReviewCount > 0
+    ? (realReviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / realReviewCount).toFixed(1)
+    : "5.0";
+
   useEffect(() => {
     if (!courseId) return;
     fetch(`/api/courses/${courseId}/reviews`)
@@ -318,7 +323,11 @@ export default function CoursePublicDetailPage() {
                     })()}
                   </span>
                   <span className="flex items-center gap-1.5"><Globe className="w-4 h-4" />{languageLabel[course.language]?.[lang] ?? course.language}</span>
-                  <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-amber-500 fill-amber-500" />4.9/5 (18 {{ ar: "تقييم", fr: "avis", en: "reviews" }[lang]})</span>
+                  {realReviewCount > 0 ? (
+                    <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-amber-500 fill-amber-500" />{realAvgRating}/5 ({realReviewCount} {{ ar: "تقييم", fr: "avis", en: "reviews" }[lang]})</span>
+                  ) : (
+                    <span className="flex items-center gap-1.5 text-muted-foreground"><Star className="w-4 h-4" />{{ ar: "جديد", fr: "Nouveau", en: "New" }[lang]}</span>
+                  )}
                 </div>
 
                 {/* Social Share Buttons */}
@@ -470,10 +479,18 @@ export default function CoursePublicDetailPage() {
                   {{ ar: "آراء وتقييمات المتدربات", fr: "Avis & Témoignages des apprenantes", en: "Student Reviews" }[lang]}
                 </h2>
                 <div className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-                  <span className="text-amber-500">★ {(course as any)?.rating ?? "4.9"}</span>
-                  <span className="text-muted-foreground text-xs font-normal">
-                    ({realReviews.length > 0 ? realReviews.length : 18} {{ ar: "تقييم", fr: "avis", en: "reviews" }[lang]})
-                  </span>
+                  {realReviewCount > 0 ? (
+                    <>
+                      <span className="text-amber-500">★ {realAvgRating}</span>
+                      <span className="text-muted-foreground text-xs font-normal">
+                        ({realReviewCount} {{ ar: "تقييم", fr: "avis", en: "reviews" }[lang]})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground text-xs font-normal">
+                      {{ ar: "لا توجد تقييمات بعد", fr: "Pas encore d'avis", en: "No reviews yet" }[lang]}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -515,48 +532,37 @@ export default function CoursePublicDetailPage() {
               )}
 
               <div className="space-y-3">
-                {((Array.isArray(realReviews) && realReviews.length > 0) ? realReviews : [
-                  {
-                    userName: "Meriem Hadj",
-                    createdAt: "Il y a 3 jours",
-                    rating: 5,
-                    comment: {
-                      ar: "دورة ممتازة وشرح المدرب دقيق جداً ومرتب. استفدت كثيراً وحصلت على شهادتي مباشرة بعد الامتحان.",
-                      fr: "Formation de grande qualité, le formateur maîtrise parfaitement son sujet et les exemples pratiques sont réels.",
-                      en: "Excellent course! Clear explanations and practical real-world exercises.",
-                    }[lang],
-                  },
-                  {
-                    userName: "Karima B.",
-                    createdAt: "Il y a 2 semaines",
-                    rating: 5,
-                    comment: {
-                      ar: "المنصة سريعة والدفع عن طريق بريدي موب كان بسيط وسريع في التأكيد.",
-                      fr: "Le paiement par BaridiMob a été validé très vite par l'administration. Contenu très riche et motivant.",
-                      en: "Fast approval and great learning experience. Highly recommended!",
-                    }[lang],
-                  },
-                ]).map((rev: any, idx: number) => (
-                  <div key={rev.id ?? idx} className="p-4 rounded-xl bg-neutral-50/70 border border-border/80">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs">
-                          {rev.userName?.[0] ?? "U"}
+                {Array.isArray(realReviews) && realReviews.length > 0 ? (
+                  realReviews.map((rev: any, idx: number) => (
+                    <div key={rev.id ?? idx} className="p-4 rounded-xl bg-neutral-50/70 border border-border/80">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs">
+                            {rev.userName?.[0] ?? "U"}
+                          </div>
+                          <span className="text-xs font-bold text-foreground">{rev.userName}</span>
                         </div>
-                        <span className="text-xs font-bold text-foreground">{rev.userName}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {rev.createdAt?.includes("T") ? new Date(rev.createdAt).toLocaleDateString() : rev.createdAt}
+                        </span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground">
-                        {rev.createdAt?.includes("T") ? new Date(rev.createdAt).toLocaleDateString() : rev.createdAt}
-                      </span>
+                      <div className="flex gap-0.5 mb-1.5">
+                        {Array.from({ length: rev.rating || 5 }).map((_, i) => (
+                          <Star key={i} className="w-3 h-3 text-amber-500 fill-amber-500" />
+                        ))}
+                      </div>
+                      <p className="text-xs text-foreground/80 leading-relaxed">{rev.comment}</p>
                     </div>
-                    <div className="flex gap-0.5 mb-1.5">
-                      {Array.from({ length: rev.rating || 5 }).map((_, i) => (
-                        <Star key={i} className="w-3 h-3 text-amber-500 fill-amber-500" />
-                      ))}
-                    </div>
-                    <p className="text-xs text-foreground/80 leading-relaxed">{rev.comment}</p>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground text-xs font-semibold">
+                    {{
+                      ar: "لا توجد تقييمات حتى الآن. كوني أول من يشارك رأيه!",
+                      fr: "Aucun avis pour le moment. Soyez la première personne à donner votre avis !",
+                      en: "No reviews yet. Be the first to leave a review!"
+                    }[lang]}
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>

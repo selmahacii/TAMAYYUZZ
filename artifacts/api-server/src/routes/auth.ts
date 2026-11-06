@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, sql } from "drizzle-orm";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, auditLogsTable } from "@workspace/db";
 import bcrypt from "bcrypt";
 import {
   RegisterBody,
@@ -66,6 +66,20 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     })
     .returning();
 
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: user.id,
+      action: "REGISTER",
+      entity: "user",
+      entityId: user.id,
+      details: { role: user.role, email: user.email, name: user.name },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on register:", e);
+  }
+
   const token = signToken(user.id, user.tokenVersion);
 
   res.status(201).json({ user: formatUser(user), token });
@@ -96,6 +110,20 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: user.id,
+      action: "LOGIN",
+      entity: "user",
+      entityId: user.id,
+      details: { email: user.email, role: user.role },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on login:", e);
+  }
+
   const token = signToken(user.id, user.tokenVersion);
   res.json({ user: formatUser(user), token });
 });
@@ -118,6 +146,20 @@ router.post("/auth/revoke-sessions", requireAuth, async (req: AuthenticatedReque
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     revokeToken(authHeader.slice(7));
+  }
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId,
+      action: "REVOKE_ALL_SESSIONS",
+      entity: "user",
+      entityId: userId,
+      details: { reason: "User requested full session invalidation" },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on revoke sessions:", e);
   }
 
   res.json({ message: "All sessions have been revoked successfully" });
@@ -146,6 +188,20 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
         tokenVersion: sql`${usersTable.tokenVersion} + 1`,
       })
       .where(eq(usersTable.id, user.id));
+
+    try {
+      await db.insert(auditLogsTable).values({
+        userId: user.id,
+        action: "RESET_PASSWORD",
+        entity: "user",
+        entityId: user.id,
+        details: { email: user.email },
+        ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+        userAgent: req.headers["user-agent"] || null,
+      });
+    } catch (e) {
+      console.error("Audit log error on reset password:", e);
+    }
 
     res.json({ message: "Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter." });
     return;
@@ -187,6 +243,20 @@ router.post("/auth/change-password", requireAuth, async (req: AuthenticatedReque
       tokenVersion: sql`${usersTable.tokenVersion} + 1`,
     })
     .where(eq(usersTable.id, userId));
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId,
+      action: "CHANGE_PASSWORD",
+      entity: "user",
+      entityId: userId,
+      details: { email: user.email },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on change password:", e);
+  }
 
   res.json({ success: true, message: "Mot de passe modifié avec succès" });
 });

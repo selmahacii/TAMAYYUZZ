@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, purchasesTable, coursesTable, enrollmentsTable, couponsTable, usersTable, invoicesTable, commissionsTable } from "@workspace/db";
+import { db, purchasesTable, coursesTable, enrollmentsTable, couponsTable, usersTable, invoicesTable, commissionsTable, auditLogsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, AuthenticatedRequest } from "../middlewares/auth";
 
@@ -209,6 +209,25 @@ router.post("/purchases", requireAuth, async (req: AuthenticatedRequest, res): P
       status: "issued",
       notes: `Paiement ${paymentMethod.toUpperCase()} en attente de vérification administrative.`,
     });
+  }
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId,
+      action: initialStatus === "paid" ? "PURCHASE_COURSE_COMPLETED" : "PURCHASE_PROOF_SUBMITTED",
+      entity: "purchase",
+      entityId: purchase.id,
+      details: {
+        courseId,
+        amount: purchase.amount,
+        paymentMethod: purchase.paymentMethod,
+        status: purchase.status,
+      },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on purchase:", e);
   }
 
   const [coach] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, course.coachId));

@@ -145,7 +145,7 @@ test("E2E - Coach Approval & Rejection with in-app notifications", async () => {
   assert.equal(coachesRes.status, 200);
   const coaches = await coachesRes.json();
   assert.ok(coaches.length > 0, "Should have coaches");
-  const targetCoach = coaches[0];
+  const targetCoach = coaches.find((c) => c.email === "coach.ahmed@tamayuz.com") || coaches[0];
 
   // Test Coach Rejection with reason
   const rejectRes = await fetch(`${BASE_URL}/api/admin/coaches/${targetCoach.id}/reject`, {

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, asc } from "drizzle-orm";
-import { db, chaptersTable, lessonsTable, coursesTable } from "@workspace/db";
+import { db, chaptersTable, lessonsTable, coursesTable, auditLogsTable } from "@workspace/db";
 import {
   GetCourseChaptersParams,
   CreateChapterParams,
@@ -74,6 +74,20 @@ router.post("/courses/:id/chapters", requireRole("coach"), async (req: Authentic
     order: parsed.data.order ?? 1,
   }).returning();
 
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "CREATE_CHAPTER",
+      entity: "chapter",
+      entityId: chapter.id,
+      details: { courseId: params.data.id, title: chapter.title },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on chapter create:", e);
+  }
+
   res.status(201).json(chapter);
 });
 
@@ -99,6 +113,21 @@ router.put("/courses/:id/chapters/:chapterId", requireRole("coach"), async (req:
     .returning();
 
   if (!updated) { res.status(404).json({ error: "Chapter not found" }); return; }
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "UPDATE_CHAPTER",
+      entity: "chapter",
+      entityId: updated.id,
+      details: { courseId: params.data.id, title: updated.title },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on chapter update:", e);
+  }
+
   res.json(updated);
 });
 
@@ -113,6 +142,21 @@ router.delete("/courses/:id/chapters/:chapterId", requireRole("coach"), async (r
   // Unlink lessons from this chapter
   await db.update(lessonsTable).set({ chapterId: null }).where(and(eq(lessonsTable.courseId, params.data.id), eq(lessonsTable.chapterId, params.data.chapterId)));
   await db.delete(chaptersTable).where(and(eq(chaptersTable.id, params.data.chapterId), eq(chaptersTable.courseId, params.data.id)));
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: req.user!.id,
+      action: "DELETE_CHAPTER",
+      entity: "chapter",
+      entityId: params.data.chapterId,
+      details: { courseId: params.data.id },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on chapter delete:", e);
+  }
+
   res.json({ message: "Chapter deleted" });
 });
 
