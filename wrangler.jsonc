@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tamayuz",
+  "name": "tamayyuzz",
   "compatibility_date": "2026-11-06",
   "assets": {
     "directory": "artifacts/smart-training/dist/public",
