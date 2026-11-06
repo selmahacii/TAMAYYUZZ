@@ -1,0 +1,28 @@
+{
+  "name": "@workspace/scripts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "hello": "tsx ./src/hello.ts",
+    "seed": "tsx ./src/seed.ts",
+    "verify": "tsx ./src/verify-modules.ts",
+    "verify-new": "tsx ./src/verify-categories-coaches.ts",
+    "verify-invoices": "tsx ./src/verify-invoices.ts",
+    "verify-manual-invoices": "tsx ./src/verify-manual-invoices.ts",
+    "verify-commissions": "tsx ./src/verify-commissions.ts",
+    "verify-cert-templates": "tsx ./src/verify-cert-templates.ts",
+    "optimize-ui": "tsx ./src/optimize-ui-theme.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@workspace/db": "workspace:*",
+    "bcrypt": "^6.0.0",
+    "drizzle-orm": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/bcrypt": "^6.0.0",
+    "tsx": "catalog:"
+  }
+}

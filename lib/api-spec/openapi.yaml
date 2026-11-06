@@ -1,0 +1,2286 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Smart Training Marketplace API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: users
+    description: User profile operations
+  - name: courses
+    description: Course operations
+  - name: lessons
+    description: Lesson operations
+  - name: chapters
+    description: Chapter operations
+  - name: uploads
+    description: File upload operations
+  - name: enrollments
+    description: Enrollment operations
+  - name: purchases
+    description: Purchase operations
+  - name: coupons
+    description: Coupon operations
+  - name: progress
+    description: Progress tracking operations
+  - name: certificates
+    description: Certificate operations
+  - name: marketplace
+    description: Public marketplace operations
+  - name: admin
+    description: Admin operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /marketplace:
+    get:
+      operationId: getMarketplace
+      tags: [marketplace]
+      summary: Public course marketplace
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+        - name: isFree
+          in: query
+          schema:
+            type: boolean
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [newest, popular, price_asc, price_desc]
+      responses:
+        "200":
+          description: Public course listing
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketplaceCourse"
+
+  /marketplace/{id}:
+    get:
+      operationId: getMarketplaceCourse
+      tags: [marketplace]
+      summary: Get public course detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Course detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceCourseDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /courses:
+    get:
+      operationId: getCourses
+      tags: [courses]
+      summary: List published courses
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+
+    post:
+      operationId: createCourse
+      tags: [courses]
+      summary: Create a course (coach only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCourseBody"
+      responses:
+        "201":
+          description: Course created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /courses/{id}:
+    get:
+      operationId: getCourse
+      tags: [courses]
+      summary: Get a course by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Course detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateCourse
+      tags: [courses]
+      summary: Update a course (coach only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCourseBody"
+      responses:
+        "200":
+          description: Updated course
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteCourse
+      tags: [courses]
+      summary: Delete a course (coach only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /courses/{id}/exam:
+    get:
+      operationId: getCourseExam
+      tags: [courses]
+      summary: Get the final exam questions (without answers) — requires all lessons completed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Exam paper
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExamPaper"
+        "400":
+          description: Lessons not yet completed / no exam configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not enrolled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /courses/{id}/exam/submit:
+    post:
+      operationId: submitCourseExam
+      tags: [courses]
+      summary: Submit final exam answers — grades server-side and issues the certificate on pass
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitExamBody"
+      responses:
+        "200":
+          description: Exam result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExamResult"
+        "400":
+          description: Invalid submission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /certificate-templates:
+    get:
+      operationId: getCertificateTemplates
+      tags: [certificates]
+      summary: List active certificate templates (for coaches picking a template)
+      responses:
+        "200":
+          description: Active templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CertificateTemplate"
+
+  /courses/my:
+    get:
+      operationId: getMyCourses
+      tags: [courses]
+      summary: Get coach's own courses
+      responses:
+        "200":
+          description: Coach's courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+
+  /courses/categories:
+    get:
+      operationId: getCategories
+      tags: [courses]
+      summary: Get all course categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /courses/recommended:
+    get:
+      operationId: getRecommendedCourses
+      tags: [courses]
+      summary: Get recommended courses for current student
+      responses:
+        "200":
+          description: Recommended courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecommendedCourse"
+
+  /courses/{id}/lessons:
+    get:
+      operationId: getCourseLessons
+      tags: [lessons]
+      summary: Get lessons for a course
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lessons list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LessonDetail"
+
+    post:
+      operationId: createLesson
+      tags: [lessons]
+      summary: Create a lesson (coach only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLessonBody"
+      responses:
+        "201":
+          description: Lesson created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonDetail"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /courses/{id}/lessons/{lessonId}:
+    patch:
+      operationId: updateLesson
+      tags: [lessons]
+      summary: Update a lesson (coach only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLessonBody"
+      responses:
+        "200":
+          description: Lesson updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteLesson
+      tags: [lessons]
+      summary: Delete a lesson (coach only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /courses/{id}/chapters:
+    get:
+      operationId: getCourseChapters
+      tags: [chapters]
+      summary: Get chapters (with nested lessons) for a course
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Chapters list, grouped lessons included
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChapterWithLessons"
+
+    post:
+      operationId: createChapter
+      tags: [chapters]
+      summary: Create a chapter (coach only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChapterBody"
+      responses:
+        "201":
+          description: Chapter created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chapter"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /courses/{id}/chapters/{chapterId}:
+    put:
+      operationId: updateChapter
+      tags: [chapters]
+      summary: Update a chapter (coach only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChapterBody"
+      responses:
+        "200":
+          description: Chapter updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chapter"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteChapter
+      tags: [chapters]
+      summary: Delete a chapter (coach only). Lessons are unlinked, not deleted.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: chapterId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /courses/{id}/lessons/{lessonId}/chapter:
+    patch:
+      operationId: assignLessonChapter
+      tags: [chapters]
+      summary: Assign (or unassign) a lesson to a chapter (coach only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignLessonChapterBody"
+      responses:
+        "200":
+          description: Lesson updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /uploads:
+    post:
+      operationId: uploadFile
+      tags: [uploads]
+      summary: Upload a file (image, video, or PDF) and get back a URL
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        "201":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadResponse"
+        "400":
+          description: Invalid or oversized file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /enrollments:
+    get:
+      operationId: getMyEnrollments
+      tags: [enrollments]
+      summary: Get student's enrolled courses
+      responses:
+        "200":
+          description: Enrolled courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Enrollment"
+
+    post:
+      operationId: enrollCourse
+      tags: [enrollments]
+      summary: Enroll in a free course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollBody"
+      responses:
+        "201":
+          description: Enrolled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Enrollment"
+        "400":
+          description: Already enrolled or course is paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /purchases/my:
+    get:
+      operationId: getMyPurchases
+      tags: [purchases]
+      summary: Get student's purchases
+      responses:
+        "200":
+          description: Purchases list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Purchase"
+
+  /purchases:
+    post:
+      operationId: buyCourse
+      tags: [purchases]
+      summary: Purchase a course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuyCourseBody"
+      responses:
+        "201":
+          description: Purchase successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+        "400":
+          description: Already purchased or invalid coupon
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /coupons:
+    get:
+      operationId: getCoupons
+      tags: [coupons]
+      summary: List all coupons (admin only)
+      responses:
+        "200":
+          description: Coupons list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Coupon"
+
+    post:
+      operationId: createCoupon
+      tags: [coupons]
+      summary: Create a coupon (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCouponBody"
+      responses:
+        "201":
+          description: Coupon created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coupon"
+
+  /coupons/{id}:
+    delete:
+      operationId: deleteCoupon
+      tags: [coupons]
+      summary: Delete a coupon (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /coupons/validate:
+    post:
+      operationId: validateCoupon
+      tags: [coupons]
+      summary: Validate a coupon code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValidateCouponBody"
+      responses:
+        "200":
+          description: Coupon validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidateCouponResponse"
+
+  /progress/course/{courseId}:
+    get:
+      operationId: getCourseProgress
+      tags: [progress]
+      summary: Get student progress for a course
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Progress data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseProgress"
+
+  /progress/lesson/{lessonId}/complete:
+    post:
+      operationId: completeLesson
+      tags: [progress]
+      summary: Mark a lesson as complete
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lesson marked complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /certificates/my:
+    get:
+      operationId: getMyCertificates
+      tags: [certificates]
+      summary: Get student's certificates
+      responses:
+        "200":
+          description: Certificates list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Certificate"
+
+  /certificates/generate:
+    post:
+      operationId: generateCertificate
+      tags: [certificates]
+      summary: Generate certificate for completed course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateCertificateBody"
+      responses:
+        "201":
+          description: Certificate generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Certificate"
+        "400":
+          description: Course not completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /certificates/{code}:
+    get:
+      operationId: getCertificateByCode
+      tags: [certificates]
+      summary: Get certificate by code (public)
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Certificate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Certificate"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/profile:
+    get:
+      operationId: getProfile
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+    patch:
+      operationId: updateProfile
+      tags: [users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileBody"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get platform stats (admin only)
+      responses:
+        "200":
+          description: Platform statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/reports:
+    get:
+      operationId: getAdminReports
+      tags: [admin]
+      summary: Get detailed platform reports (admin only)
+      responses:
+        "200":
+          description: Reports data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReports"
+
+  /admin/coaches:
+    get:
+      operationId: getAdminCoaches
+      tags: [admin]
+      summary: Get all coaches (admin only)
+      responses:
+        "200":
+          description: List of coaches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /admin/coaches/{id}/approve:
+    post:
+      operationId: approveCoach
+      tags: [admin]
+      summary: Approve a coach (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Coach approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/coaches/{id}/reject:
+    post:
+      operationId: rejectCoach
+      tags: [admin]
+      summary: Reject/suspend a coach (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Coach rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/coaches/{id}/diplomas/{index}/verify:
+    patch:
+      operationId: verifyCoachDiploma
+      tags: [admin]
+      summary: Mark a coach's diploma as verified/unverified after reviewing its proof document (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: index
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                verified:
+                  type: boolean
+              required:
+                - verified
+      responses:
+        "200":
+          description: Diploma verification updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /admin/courses:
+    get:
+      operationId: getAdminCourses
+      tags: [admin]
+      summary: Get all courses (admin only)
+      responses:
+        "200":
+          description: All courses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Course"
+
+  /admin/courses/{id}/publish:
+    post:
+      operationId: publishCourse
+      tags: [admin]
+      summary: Publish a course (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Course published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+
+  /admin/courses/{id}/unpublish:
+    post:
+      operationId: unpublishCourse
+      tags: [admin]
+      summary: Unpublish a course (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Course unpublished
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Course"
+
+  /admin/users:
+    get:
+      operationId: getAdminUsers
+      tags: [admin]
+      summary: Get all users (admin only)
+      responses:
+        "200":
+          description: All users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /admin/users/{id}:
+    delete:
+      operationId: deleteUser
+      tags: [admin]
+      summary: Delete a user (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    RegisterBody:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [student, coach]
+        phone:
+          type: ["string", "null"]
+        domain:
+          type: ["string", "null"]
+        diplomas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Diploma"
+        priorTrainings:
+          type: array
+          items:
+            type: string
+        teachingPlan:
+          type: ["string", "null"]
+        interests:
+          type: array
+          items:
+            type: string
+      required:
+        - name
+        - email
+        - password
+        - role
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      required:
+        - user
+        - token
+
+    Diploma:
+      type: object
+      properties:
+        name:
+          type: string
+        documentUrl:
+          type: ["string", "null"]
+        verified:
+          type: boolean
+      required:
+        - name
+        - documentUrl
+        - verified
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        isApproved:
+          type: boolean
+        bio:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        domain:
+          type: ["string", "null"]
+        diplomas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Diploma"
+        priorTrainings:
+          type: array
+          items:
+            type: string
+        teachingPlan:
+          type: ["string", "null"]
+        interests:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - role
+        - isApproved
+        - createdAt
+
+    UserRole:
+      type: string
+      enum: [student, coach, admin]
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        subtitle:
+          type: ["string", "null"]
+        description:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        coachId:
+          type: integer
+        coachName:
+          type: string
+        isPublished:
+          type: boolean
+        enrollmentCount:
+          type: integer
+        durationHours:
+          type: ["number", "null"]
+        level:
+          $ref: "#/components/schemas/CourseLevel"
+        isFree:
+          type: boolean
+        price:
+          type: string
+        currency:
+          type: string
+        language:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        learningObjectives:
+          type: array
+          items:
+            type: string
+        requirements:
+          type: array
+          items:
+            type: string
+        targetAudience:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+        certificateTemplateId:
+          type: ["integer", "null"]
+        hasFinalExam:
+          type: boolean
+        finalExam:
+          type: ["object", "null"]
+          allOf:
+            - $ref: "#/components/schemas/FinalExam"
+      required:
+        - id
+        - title
+        - description
+        - category
+        - coachId
+        - coachName
+        - isPublished
+        - enrollmentCount
+        - level
+        - isFree
+        - price
+        - currency
+        - language
+        - tags
+        - learningObjectives
+        - requirements
+        - targetAudience
+        - createdAt
+        - hasFinalExam
+
+    CourseLevel:
+      type: string
+      enum: [beginner, intermediate, advanced]
+
+    CourseDetail:
+      allOf:
+        - $ref: "#/components/schemas/Course"
+        - type: object
+          properties:
+            lessons:
+              type: array
+              items:
+                $ref: "#/components/schemas/LessonDetail"
+            isEnrolled:
+              type: boolean
+            isPurchased:
+              type: boolean
+          required:
+            - lessons
+            - isEnrolled
+            - isPurchased
+
+    MarketplaceCourse:
+      allOf:
+        - $ref: "#/components/schemas/Course"
+        - type: object
+          properties:
+            isEnrolled:
+              type: boolean
+            isPurchased:
+              type: boolean
+            lessonCount:
+              type: integer
+          required:
+            - isEnrolled
+            - isPurchased
+            - lessonCount
+
+    RecommendedCourse:
+      allOf:
+        - $ref: "#/components/schemas/Course"
+        - type: object
+          properties:
+            matchesProfile:
+              type: boolean
+          required:
+            - matchesProfile
+
+    MarketplaceCourseDetail:
+      allOf:
+        - $ref: "#/components/schemas/CourseDetail"
+        - type: object
+          properties:
+            lessonCount:
+              type: integer
+          required:
+            - lessonCount
+
+    Lesson:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        order:
+          type: integer
+        durationMinutes:
+          type: ["integer", "null"]
+        type:
+          $ref: "#/components/schemas/LessonType"
+      required:
+        - id
+        - title
+        - order
+        - type
+
+    LessonType:
+      type: string
+      enum: [text, video, pdf, quiz]
+
+    LessonDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: integer
+        chapterId:
+          type: ["integer", "null"]
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        order:
+          type: integer
+        durationMinutes:
+          type: ["integer", "null"]
+        type:
+          $ref: "#/components/schemas/LessonType"
+        videoUrl:
+          type: ["string", "null"]
+        pdfUrl:
+          type: ["string", "null"]
+        quizData:
+          type: ["object", "null"]
+      required:
+        - id
+        - courseId
+        - title
+        - order
+        - type
+
+    Chapter:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: integer
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        order:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - courseId
+        - title
+        - order
+
+    ChapterWithLessons:
+      allOf:
+        - $ref: "#/components/schemas/Chapter"
+        - type: object
+          properties:
+            lessons:
+              type: array
+              items:
+                $ref: "#/components/schemas/LessonDetail"
+          required:
+            - lessons
+
+    CreateChapterBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        order:
+          type: integer
+      required:
+        - title
+
+    UpdateChapterBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        order:
+          type: integer
+
+    AssignLessonChapterBody:
+      type: object
+      properties:
+        chapterId:
+          type: ["integer", "null"]
+      required:
+        - chapterId
+
+    UploadResponse:
+      type: object
+      properties:
+        url:
+          type: string
+        filename:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+      required:
+        - url
+        - filename
+        - mimeType
+        - size
+
+    CreateCourseBody:
+      type: object
+      properties:
+        title:
+          type: string
+        subtitle:
+          type: ["string", "null"]
+        description:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        durationHours:
+          type: ["number", "null"]
+        level:
+          $ref: "#/components/schemas/CourseLevel"
+        isFree:
+          type: boolean
+        price:
+          type: string
+        currency:
+          type: string
+        language:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        learningObjectives:
+          type: array
+          items:
+            type: string
+        requirements:
+          type: array
+          items:
+            type: string
+        targetAudience:
+          type: array
+          items:
+            type: string
+        certificateTemplateId:
+          type: ["integer", "null"]
+        finalExam:
+          type: ["object", "null"]
+          allOf:
+            - $ref: "#/components/schemas/FinalExam"
+      required:
+        - title
+        - description
+        - category
+        - level
+
+    UpdateCourseBody:
+      type: object
+      properties:
+        title:
+          type: string
+        subtitle:
+          type: ["string", "null"]
+        description:
+          type: string
+        category:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        durationHours:
+          type: ["number", "null"]
+        level:
+          $ref: "#/components/schemas/CourseLevel"
+        isFree:
+          type: boolean
+        price:
+          type: string
+        currency:
+          type: string
+        language:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        learningObjectives:
+          type: array
+          items:
+            type: string
+        requirements:
+          type: array
+          items:
+            type: string
+        targetAudience:
+          type: array
+          items:
+            type: string
+        certificateTemplateId:
+          type: ["integer", "null"]
+        finalExam:
+          type: ["object", "null"]
+          allOf:
+            - $ref: "#/components/schemas/FinalExam"
+
+    CreateLessonBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        chapterId:
+          type: ["integer", "null"]
+        order:
+          type: integer
+        durationMinutes:
+          type: ["integer", "null"]
+        type:
+          $ref: "#/components/schemas/LessonType"
+        videoUrl:
+          type: ["string", "null"]
+        pdfUrl:
+          type: ["string", "null"]
+        quizData:
+          type: ["object", "null"]
+      required:
+        - title
+
+    UpdateLessonBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        chapterId:
+          type: ["integer", "null"]
+        order:
+          type: integer
+        durationMinutes:
+          type: ["integer", "null"]
+        type:
+          $ref: "#/components/schemas/LessonType"
+        videoUrl:
+          type: ["string", "null"]
+        pdfUrl:
+          type: ["string", "null"]
+        quizData:
+          type: ["object", "null"]
+
+    Enrollment:
+      type: object
+      properties:
+        id:
+          type: integer
+        courseId:
+          type: integer
+        userId:
+          type: integer
+        course:
+          $ref: "#/components/schemas/Course"
+        enrolledAt:
+          type: string
+      required:
+        - id
+        - courseId
+        - userId
+        - course
+        - enrolledAt
+
+    EnrollBody:
+      type: object
+      properties:
+        courseId:
+          type: integer
+      required:
+        - courseId
+
+    Purchase:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        courseId:
+          type: integer
+        amount:
+          type: string
+        currency:
+          type: string
+        couponCode:
+          type: ["string", "null"]
+        discountApplied:
+          type: string
+        paidAt:
+          type: string
+        invoiceNumber:
+          type: ["string", "null"]
+        invoiceStatus:
+          type: ["string", "null"]
+        course:
+          $ref: "#/components/schemas/Course"
+      required:
+        - id
+        - userId
+        - courseId
+        - amount
+        - currency
+        - discountApplied
+        - paidAt
+        - course
+
+    BuyCourseBody:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        couponCode:
+          type: string
+      required:
+        - courseId
+
+    Coupon:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        discountPercent:
+          type: number
+        maxUses:
+          type: ["integer", "null"]
+        usedCount:
+          type: integer
+        expiresAt:
+          type: ["string", "null"]
+        courseId:
+          type: ["integer", "null"]
+        courseName:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - code
+        - discountPercent
+        - usedCount
+        - isActive
+        - createdAt
+
+    CreateCouponBody:
+      type: object
+      properties:
+        code:
+          type: string
+        discountPercent:
+          type: number
+        maxUses:
+          type: ["integer", "null"]
+        expiresAt:
+          type: ["string", "null"]
+        courseId:
+          type: ["integer", "null"]
+        isActive:
+          type: boolean
+      required:
+        - code
+        - discountPercent
+
+    ValidateCouponBody:
+      type: object
+      properties:
+        code:
+          type: string
+        courseId:
+          type: integer
+      required:
+        - code
+        - courseId
+
+    ValidateCouponResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        discountPercent:
+          type: number
+        discountedPrice:
+          type: number
+        message:
+          type: string
+      required:
+        - valid
+        - discountPercent
+        - discountedPrice
+        - message
+
+    CourseProgress:
+      type: object
+      properties:
+        courseId:
+          type: integer
+        totalLessons:
+          type: integer
+        completedLessons:
+          type: integer
+        progressPercent:
+          type: number
+        completedLessonIds:
+          type: array
+          items:
+            type: integer
+        isCompleted:
+          type: boolean
+      required:
+        - courseId
+        - totalLessons
+        - completedLessons
+        - progressPercent
+        - completedLessonIds
+        - isCompleted
+
+    Certificate:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        courseId:
+          type: ["integer", "null"]
+        certificateCode:
+          type: string
+        issuedAt:
+          type: string
+        studentName:
+          type: string
+        courseName:
+          type: string
+        coachName:
+          type: string
+        examScore:
+          type: ["integer", "null"]
+        template:
+          $ref: "#/components/schemas/CertificateTemplateSnapshot"
+      required:
+        - id
+        - userId
+        - courseId
+        - certificateCode
+        - issuedAt
+        - studentName
+        - courseName
+        - coachName
+        - template
+
+    CertificateTemplateSnapshot:
+      type: object
+      properties:
+        primaryColor:
+          type: string
+        accentColor:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        customTitleText:
+          type: string
+        signatureTitle:
+          type: string
+        fontFamily:
+          type: string
+      required:
+        - primaryColor
+        - accentColor
+        - customTitleText
+        - signatureTitle
+        - fontFamily
+
+    CertificateTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        primaryColor:
+          type: string
+        accentColor:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        customTitleText:
+          type: ["string", "null"]
+        signatureTitle:
+          type: ["string", "null"]
+        fontFamily:
+          type: ["string", "null"]
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - primaryColor
+        - accentColor
+        - isDefault
+        - isActive
+        - createdAt
+
+    ExamQuestion:
+      type: object
+      properties:
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        answer:
+          type: integer
+      required:
+        - question
+        - options
+        - answer
+
+    ExamQuestionPublic:
+      type: object
+      properties:
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+      required:
+        - question
+        - options
+
+    FinalExam:
+      type: object
+      properties:
+        passingScore:
+          type: integer
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExamQuestion"
+      required:
+        - passingScore
+        - questions
+
+    ExamPaper:
+      type: object
+      properties:
+        passingScore:
+          type: integer
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExamQuestionPublic"
+      required:
+        - passingScore
+        - questions
+
+    SubmitExamBody:
+      type: object
+      properties:
+        answers:
+          type: array
+          items:
+            type: integer
+      required:
+        - answers
+
+    ExamResult:
+      type: object
+      properties:
+        score:
+          type: integer
+        passed:
+          type: boolean
+        passingScore:
+          type: integer
+        correctAnswers:
+          type: array
+          items:
+            type: integer
+        certificate:
+          type: ["object", "null"]
+          allOf:
+            - $ref: "#/components/schemas/Certificate"
+      required:
+        - score
+        - passed
+        - passingScore
+        - correctAnswers
+        - certificate
+
+    GenerateCertificateBody:
+      type: object
+      properties:
+        courseId:
+          type: integer
+      required:
+        - courseId
+
+    UpdateProfileBody:
+      type: object
+      properties:
+        name:
+          type: string
+        bio:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        domain:
+          type: ["string", "null"]
+        diplomas:
+          type: array
+          items:
+            $ref: "#/components/schemas/Diploma"
+        priorTrainings:
+          type: array
+          items:
+            type: string
+        teachingPlan:
+          type: ["string", "null"]
+        interests:
+          type: array
+          items:
+            type: string
+
+    AdminStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        totalStudents:
+          type: integer
+        totalCoaches:
+          type: integer
+        pendingCoaches:
+          type: integer
+        totalCourses:
+          type: integer
+        publishedCourses:
+          type: integer
+        totalEnrollments:
+          type: integer
+        totalPurchases:
+          type: integer
+        totalRevenue:
+          type: string
+        activeCoupons:
+          type: integer
+        totalCertificates:
+          type: integer
+      required:
+        - totalUsers
+        - totalStudents
+        - totalCoaches
+        - pendingCoaches
+        - totalCourses
+        - publishedCourses
+        - totalEnrollments
+        - totalPurchases
+        - totalRevenue
+        - activeCoupons
+        - totalCertificates
+
+    AdminReports:
+      type: object
+      properties:
+        enrollmentsByMonth:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+              count:
+                type: integer
+            required:
+              - month
+              - count
+        revenueByMonth:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+              revenue:
+                type: string
+            required:
+              - month
+              - revenue
+        topCourses:
+          type: array
+          items:
+            type: object
+            properties:
+              courseId:
+                type: integer
+              title:
+                type: string
+              enrollmentCount:
+                type: integer
+              revenue:
+                type: string
+            required:
+              - courseId
+              - title
+              - enrollmentCount
+              - revenue
+        categoryDistribution:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              count:
+                type: integer
+            required:
+              - category
+              - count
+      required:
+        - enrollmentsByMonth
+        - revenueByMonth
+        - topCourses
+        - categoryDistribution

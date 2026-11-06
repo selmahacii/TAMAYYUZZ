@@ -1,0 +1,261 @@
+🎯 OBJECTIF
+
+Créer une application complète **“Smart Training Marketplace”**
+(Flutter mobile + web + backend Supabase) prête pour un MVP propre, sécurisé et utilisable.
+
+Tu dois agir comme:
+👉 Senior Full-Stack Engineer + UX Designer + Software Architect
+
+---
+
+🧠 CONTEXTE PRODUIT
+
+Construire une marketplace de formations pour femmes arabes:
+
+* 👩‍🎓 Étudiantes → découvrent et rejoignent des cours
+* 👩‍🏫 Coachs → créent et vendent leurs formations
+* 👩‍💼 Admin → contrôle et valide le contenu
+
+---
+
+🛠️ STACK OBLIGATOIRE
+
+Frontend:
+
+* Flutter (mobile + web responsive)
+* Material 3
+* State management: Riverpod
+* Navigation: go_router
+
+Backend:
+
+* Supabase:
+
+  * Auth (email/password)
+  * PostgreSQL
+  * Storage
+
+Architecture:
+
+* Clean Architecture (feature-based)
+
+---
+
+🏗️ STRUCTURE PROJET (OBLIGATOIRE)
+
+lib/
+core/
+features/
+auth/
+courses/
+coach/
+student/
+admin/
+shared/
+
+Respecter:
+
+* séparation data / domain / presentation
+* UI sans logique métier
+
+---
+
+👥 ROLES
+
+* student
+* coach
+* admin
+
+Chaque utilisateur possède:
+
+* id
+* name
+* email
+* role
+
+---
+
+🔐 AUTHENTIFICATION
+
+Implémenter:
+
+* register (choix rôle)
+* login
+* logout
+* session persistante
+
+Redirection automatique selon rôle:
+
+* student → home
+* coach → dashboard
+* admin → admin panel
+
+---
+
+🧩 BASE DE DONNÉES (SUPABASE)
+
+Créer tables:
+
+profiles
+coaches
+courses
+enrollments
+lessons (simplifié pour MVP)
+
+Inclure:
+
+* relations correctes
+* contraintes
+* timestamps
+
+---
+
+🔐 SÉCURITÉ (CRITIQUE)
+
+* Activer RLS sur toutes les tables
+
+* Policies:
+
+  * user → ses données
+  * coach → ses cours
+  * admin → accès total
+
+* Valider:
+
+  * insert
+  * update
+  * delete
+
+---
+
+📱 ÉCRANS À CRÉER
+
+1. Splash Screen
+2. Onboarding
+3. Login / Register
+
+👩‍🎓 STUDENT:
+4. Home (catégories + search + recommended)
+5. Course Detail
+6. My Courses
+7. Profile
+
+👩‍🏫 COACH:
+8. Dashboard
+9. Add Course
+10. Edit Course
+11. Profile
+
+👩‍💼 ADMIN:
+12. Dashboard
+13. Approve Coaches
+14. Manage Courses
+
+---
+
+🔄 FLUX UTILISATEUR (OBLIGATOIRE)
+
+STUDENT:
+
+* login → browse → search → view → enroll → my courses
+
+COACH:
+
+* login → create profile → add course → manage courses
+
+ADMIN:
+
+* login → approve coach → manage platform
+
+---
+
+🎨 UX / UI (IMPORTANT)
+
+* design moderne, minimaliste
+* mobile-first
+* responsive web
+
+Inclure:
+
+* loading states
+* empty states
+* error states
+* feedback utilisateur (snackbar)
+
+---
+
+🧠 LOGIQUE MÉTIER
+
+* Un coach doit être approuvé avant publier
+* Un utilisateur ne peut pas s’inscrire 2 fois
+* Enrollment crée relation user ↔ course
+* Courses visibles seulement si:
+
+  * published
+  * active
+
+---
+
+⚙️ FONCTIONNALITÉS
+
+✔️ Auth complète
+✔️ CRUD cours (coach)
+✔️ Navigation par rôle
+✔️ Recherche cours
+✔️ Inscription (simulation ou réelle DB)
+✔️ Dashboard admin
+
+---
+
+🧪 QUALITÉ CODE
+
+* code lisible
+* pas de duplication
+* composants réutilisables
+* gestion erreurs globale
+
+---
+
+📦 LIVRABLE
+
+Générer:
+
+1. Code Flutter complet
+2. Config Supabase
+3. Schéma SQL
+4. RLS policies
+5. Navigation fonctionnelle
+6. README clair (setup + run)
+
+---
+
+🚀 BONUS
+
+* Dark mode
+* animations Flutter
+* recommended courses (simple logic)
+
+---
+
+❗ CONTRAINTES
+
+* MVP uniquement (pas de paiement)
+* UX simple et fluide
+* pas de complexité inutile
+
+---
+
+🔥 OBJECTIF FINAL
+
+Obtenir une application:
+
+✔️ fonctionnelle end-to-end
+✔️ sécurisée (RLS actif)
+✔️ UX fluide
+✔️ prête à être testée par utilisateurs
+
+---
+
+💎 PRIORITÉ
+
+UX > Simplicité > Sécurité > Architecture > Performance
