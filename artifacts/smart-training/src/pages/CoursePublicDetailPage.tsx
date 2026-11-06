@@ -515,7 +515,7 @@ export default function CoursePublicDetailPage() {
               )}
 
               <div className="space-y-3">
-                {(realReviews.length > 0 ? realReviews : [
+                {((Array.isArray(realReviews) && realReviews.length > 0) ? realReviews : [
                   {
                     userName: "Meriem Hadj",
                     createdAt: "Il y a 3 jours",

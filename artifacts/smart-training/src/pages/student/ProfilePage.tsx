@@ -15,9 +15,16 @@ const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 export default function StudentProfilePage() {
   const { lang } = useI18n();
   const { data: profile, isLoading } = useGetProfile();
-  const { data: enrollments } = useGetMyEnrollments();
-  const { data: certificates } = useGetMyCertificates();
-  const { data: categories } = useGetCategories();
+  const { data: rawEnrollments } = useGetMyEnrollments();
+  const enrollments = Array.isArray(rawEnrollments) ? rawEnrollments : [];
+  const { data: rawCertificates } = useGetMyCertificates();
+  const certificates = Array.isArray(rawCertificates) ? rawCertificates : [];
+  const { data: rawCategories } = useGetCategories();
+  const categories = Array.isArray(rawCategories) ? rawCategories : [
+    "Business", "Marketing", "Finance", "Technology", 
+    "Communication", "Personal Development", "Design", 
+    "Entrepreneuriat", "Management", "Other"
+  ];
   const updateMutation = useUpdateProfile();
   const uploadMutation = useUploadFile();
   const queryClient = useQueryClient();

@@ -307,7 +307,23 @@ async function parseSuccessBody(
       return parseJsonBody(response, requestInfo);
 
     case "text": {
+      const mediaType = getMediaType(response.headers);
       const text = await response.text();
+      if (
+        mediaType === "text/html" &&
+        (text.includes("<!DOCTYPE") ||
+          text.includes("<html") ||
+          requestInfo.url.includes("/api/"))
+      ) {
+        throw new ApiError(
+          response,
+          {
+            message:
+              "API route returned HTML (SPA fallback detected). Please configure VITE_API_URL or check backend API deployment.",
+          },
+          requestInfo,
+        );
+      }
       return text === "" ? null : text;
     }
 

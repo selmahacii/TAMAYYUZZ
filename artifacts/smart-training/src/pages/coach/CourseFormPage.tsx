@@ -84,8 +84,14 @@ export default function CourseFormPage() {
   const { data: existingCourse } = useGetCourse(activeCourseId ?? 0, {
     query: { enabled: !!activeCourseId, queryKey: getGetCourseQueryKey(activeCourseId ?? 0) },
   });
-  const { data: categories } = useGetCategories();
-  const { data: templates } = useGetCertificateTemplates();
+  const { data: rawCategories } = useGetCategories();
+  const categories = Array.isArray(rawCategories) ? rawCategories : [
+    "Business", "Marketing", "Finance", "Technology", 
+    "Communication", "Personal Development", "Design", 
+    "Entrepreneuriat", "Management", "Other"
+  ];
+  const { data: rawTemplates } = useGetCertificateTemplates();
+  const templates = Array.isArray(rawTemplates) ? rawTemplates : [];
 
   const createMutation = useCreateCourse();
   const updateMutation = useUpdateCourse();

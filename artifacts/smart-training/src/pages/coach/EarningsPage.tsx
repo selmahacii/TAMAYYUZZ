@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGetMyCourses } from "@workspace/api-client-react";
 import { useI18n } from "@/i18n";
 import { CoachLayout } from "@/components/coach/CoachLayout";

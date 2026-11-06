@@ -84,8 +84,14 @@ function DiplomaListEditor({ items, onChange, lang, uploadMutation }: {
 export default function CoachProfilePage() {
   const { lang } = useI18n();
   const { data: profile, isLoading } = useGetProfile();
-  const { data: courses } = useGetMyCourses();
-  const { data: categories } = useGetCategories();
+  const { data: rawCourses } = useGetMyCourses();
+  const courses = Array.isArray(rawCourses) ? rawCourses : [];
+  const { data: rawCategories } = useGetCategories();
+  const categories = Array.isArray(rawCategories) ? rawCategories : [
+    "Business", "Marketing", "Finance", "Technology", 
+    "Communication", "Personal Development", "Design", 
+    "Entrepreneuriat", "Management", "Other"
+  ];
   const updateMutation = useUpdateProfile();
   const uploadMutation = useUploadFile();
   const queryClient = useQueryClient();

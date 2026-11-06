@@ -37,12 +37,20 @@ export default function StudentHomePage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const marketplaceParams = { search: search || undefined, category: activeCategory || undefined };
-  const { data: courses, isLoading } = useGetMarketplace(marketplaceParams, {
+  const { data: rawCourses, isLoading } = useGetMarketplace(marketplaceParams, {
     query: { queryKey: getGetMarketplaceQueryKey(marketplaceParams) },
   });
+  const courses = Array.isArray(rawCourses) ? rawCourses : [];
 
-  const { data: categories } = useGetCategories();
-  const { data: recommended } = useGetRecommendedCourses();
+  const { data: rawCategories } = useGetCategories();
+  const categories = Array.isArray(rawCategories) ? rawCategories : [
+    "Business", "Marketing", "Finance", "Technology", 
+    "Communication", "Personal Development", "Design", 
+    "Entrepreneuriat", "Management", "Other"
+  ];
+
+  const { data: rawRecommended } = useGetRecommendedCourses();
+  const recommended = Array.isArray(rawRecommended) ? rawRecommended : [];
 
   const goToCourse = (course: { id: number; isEnrolled?: boolean; isPurchased?: boolean }) => {
     setLocation(course.isEnrolled || course.isPurchased ? `/student/learn/${course.id}` : `/course/${course.id}`);

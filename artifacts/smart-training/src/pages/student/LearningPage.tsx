@@ -260,7 +260,7 @@ function LessonQAThread({ lessonId, lang }: { lessonId: number; lang: "ar" | "fr
       });
       if (res.ok) {
         const data = await res.json();
-        setComments(data.comments || []);
+        setComments(Array.isArray(data.comments) ? data.comments : []);
       }
     } catch {
       // ignore

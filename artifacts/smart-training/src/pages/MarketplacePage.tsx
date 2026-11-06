@@ -30,7 +30,12 @@ export default function MarketplacePage() {
   const [sortBy, setSortBy] = useState<"newest" | "popular" | "price_asc" | "price_desc">("newest");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const { data: categories } = useGetCategories();
+  const { data: rawCategories } = useGetCategories();
+  const categories = Array.isArray(rawCategories) ? rawCategories : [
+    "Business", "Marketing", "Finance", "Technology", 
+    "Communication", "Personal Development", "Design", 
+    "Entrepreneuriat", "Management", "Other"
+  ];
 
   useEffect(() => {
     fetch("/api/announcements")
@@ -51,9 +56,10 @@ export default function MarketplacePage() {
     isFree: priceFilter === "all" ? undefined : priceFilter === "free",
     sortBy,
   };
-  const { data: courses, isLoading } = useGetMarketplace(params, {
+  const { data: rawCourses, isLoading } = useGetMarketplace(params, {
     query: { queryKey: getGetMarketplaceQueryKey(params) },
   });
+  const courses = Array.isArray(rawCourses) ? rawCourses : [];
 
   const handleCourseClick = (course: { id: number; isEnrolled?: boolean; isPurchased?: boolean }) => {
     if (user?.role === "student" && (course.isEnrolled || course.isPurchased)) {
