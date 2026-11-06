@@ -44,7 +44,6 @@ export default function LoginPage() {
   const { toast } = useToast();
   const { lang, setLang, isRTL } = useI18n();
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<"student" | "coach" | "admin">("student");
   const [testimonialIdx, setTestimonialIdx] = useState(0);
 
   // Forgot Password modal state
@@ -285,34 +284,6 @@ export default function LoginPage() {
             <p className="text-muted-foreground text-sm">
               {{ ar: "أدخلي بياناتك لمتابعة تعلّمك", fr: "Connectez-vous à votre espace", en: "Log in to your space" }[lang]}
             </p>
-          </div>
-
-          {/* Explicit Role Selector Tabs */}
-          <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-neutral-100 mb-6 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setSelectedRole("student")}
-              className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${selectedRole === "student" ? "bg-white text-black shadow-xs" : "text-muted-foreground hover:text-black"}`}
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span>{{ ar: "طالب", fr: "Étudiant", en: "Student" }[lang]}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedRole("coach")}
-              className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${selectedRole === "coach" ? "bg-white text-black shadow-xs" : "text-muted-foreground hover:text-black"}`}
-            >
-              <Briefcase className="w-3.5 h-3.5" />
-              <span>{{ ar: "مدرب", fr: "Coach", en: "Coach" }[lang]}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedRole("admin")}
-              className={`py-1.5 px-2 rounded-lg flex items-center justify-center gap-1.5 transition-all ${selectedRole === "admin" ? "bg-white text-black shadow-xs" : "text-muted-foreground hover:text-black"}`}
-            >
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Admin</span>
-            </button>
           </div>
 
           <Form {...form}>
