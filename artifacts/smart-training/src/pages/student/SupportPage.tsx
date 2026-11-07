@@ -59,7 +59,10 @@ export default function StudentSupportPage() {
     setLoading(true);
     try {
       const res = await fetch(`${BASE}/api/tickets/my`, { headers });
-      if (res.ok) setTickets(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setTickets(Array.isArray(data) ? data : []);
+      }
     } catch {
       toast({ title: { ar: "خطأ في الشبكة", fr: "Erreur réseau", en: "Network error" }[lang], variant: "destructive" });
     } finally {

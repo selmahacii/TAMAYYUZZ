@@ -120,12 +120,13 @@ function InvoiceDialog({ purchase, lang, onClose }: { purchase: Purchase; lang: 
 
 export default function StudentPurchasesPage() {
   const { lang } = useI18n();
-  const { data: purchases, isLoading } = useGetMyPurchases();
+  const { data: rawPurchases, isLoading } = useGetMyPurchases();
+  const purchases = Array.isArray(rawPurchases) ? rawPurchases : [];
   const [selected, setSelected] = useState<Purchase | null>(null);
 
-  const total = purchases?.reduce((s, p) => s + parseFloat(p.amount), 0) ?? 0;
-  const totalSaved = purchases?.reduce((s, p) => s + parseFloat(p.discountApplied), 0) ?? 0;
-  const coursesCount = purchases?.length ?? 0;
+  const total = purchases.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+  const totalSaved = purchases.reduce((s, p) => s + (parseFloat(p.discountApplied) || 0), 0);
+  const coursesCount = purchases.length;
 
   return (
     <StudentLayout

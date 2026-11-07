@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useI18n } from "@/i18n";
 import {
-  Home, GraduationCap, Award, Wallet,
+  Home, Compass, GraduationCap, Award, Wallet,
   UserCircle, ChevronDown, ChevronRight, LogOut, Menu, X, LifeBuoy, HelpCircle,
 } from "lucide-react";
 import { LogoMark } from "@/components/shared/LogoMark";
@@ -45,6 +45,7 @@ export function StudentLayout({ children, title, subtitle }: StudentLayoutProps)
       labelKey: t("student.section.principal"),
       items: [
         { key: "dashboard", href: "/student/home", icon: <Home className="w-4 h-4" /> },
+        { key: "courses", href: "/student/courses", icon: <Compass className="w-4 h-4" /> },
       ],
     },
     {
@@ -70,6 +71,7 @@ export function StudentLayout({ children, title, subtitle }: StudentLayoutProps)
   const navLabel = (key: string): string => {
     const map: Record<string, string> = {
       dashboard: t("student.dashboard"),
+      courses: { ar: "الدورات المتاحة", fr: "Catalogue des formations", en: "Explore Courses" }[lang] ?? "Formations",
       my_courses: t("student.my_courses"),
       certificates: t("student.certificates"),
       purchases: t("student.purchases"),

@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 
 export default function MyCoursesPage() {
   const { lang } = useI18n();
-  const { data: enrollments, isLoading } = useGetMyEnrollments();
+  const { data: rawEnrollments, isLoading } = useGetMyEnrollments();
+  const enrollments = Array.isArray(rawEnrollments) ? rawEnrollments : [];
 
   return (
     <StudentLayout
@@ -21,7 +22,7 @@ export default function MyCoursesPage() {
             <div key={i} className="h-80 bg-muted rounded-2xl animate-pulse" />
           ))}
         </div>
-      ) : enrollments && enrollments.length > 0 ? (
+      ) : enrollments.length > 0 ? (
         <>
           <div className="flex items-center gap-2 mb-5">
             <Trophy className="w-4 h-4 text-amber-500" />

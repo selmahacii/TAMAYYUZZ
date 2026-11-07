@@ -15,6 +15,7 @@ import CoursePublicDetailPage from "@/pages/CoursePublicDetailPage";
 import CertificatePublicPage from "@/pages/CertificatePublicPage";
 
 import StudentHomePage from "@/pages/student/HomePage";
+import StudentExplorePage from "@/pages/student/ExploreCoursesPage";
 import MyCoursesPage from "@/pages/student/MyCoursesPage";
 import StudentProfilePage from "@/pages/student/ProfilePage";
 import StudentLearningPage from "@/pages/student/LearningPage";
@@ -83,6 +84,8 @@ function Router() {
 
       {/* Student */}
       <Route path="/student/home"><ProtectedRoute allowedRoles={["student"]}><StudentHomePage /></ProtectedRoute></Route>
+      <Route path="/student/courses"><ProtectedRoute allowedRoles={["student"]}><StudentExplorePage /></ProtectedRoute></Route>
+      <Route path="/student/explore"><ProtectedRoute allowedRoles={["student"]}><StudentExplorePage /></ProtectedRoute></Route>
       <Route path="/student/course/:id"><ProtectedRoute allowedRoles={["student"]}><RedirectToPublicCourse /></ProtectedRoute></Route>
       <Route path="/student/my-courses"><ProtectedRoute allowedRoles={["student"]}><MyCoursesPage /></ProtectedRoute></Route>
       <Route path="/student/learn/:id"><ProtectedRoute allowedRoles={["student"]}><StudentLearningPage /></ProtectedRoute></Route>

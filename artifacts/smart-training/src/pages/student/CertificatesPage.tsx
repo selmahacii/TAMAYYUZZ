@@ -10,7 +10,8 @@ export default function StudentCertificatesPage() {
   const [, setLocation] = useLocation();
   const { lang } = useI18n();
   const { toast } = useToast();
-  const { data: certs, isLoading } = useGetMyCertificates();
+  const { data: rawCerts, isLoading } = useGetMyCertificates();
+  const certs = Array.isArray(rawCerts) ? rawCerts : [];
 
   return (
     <StudentLayout
@@ -23,7 +24,7 @@ export default function StudentCertificatesPage() {
             <div key={i} className="bg-white border border-border shadow-2xs rounded-2xl h-48 animate-pulse" />
           ))}
         </div>
-      ) : !certs || certs.length === 0 ? (
+      ) : certs.length === 0 ? (
         <div className="text-center py-20 bg-white border border-border rounded-2xl">
           <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 bg-amber-50">
             <Award className="w-10 h-10 text-amber-500" />
