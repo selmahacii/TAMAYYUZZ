@@ -600,6 +600,14 @@ export default {
               coachName: c.coach_name || "Formateur Tamayuz",
               examScore: c.exam_score ?? 100,
               templateId: c.template_id ?? 1,
+              template: {
+                primaryColor: "#0f172a",
+                accentColor: "#334155",
+                logoUrl: null,
+                customTitleText: "Certificat de réussite",
+                signatureTitle: "Direction Tamayyuz",
+                fontFamily: "serif",
+              },
             }))
           );
         }
@@ -631,6 +639,14 @@ export default {
             coachName: c.coach_name,
             examScore: c.exam_score ?? 100,
             templateId: c.template_id ?? 1,
+            template: {
+              primaryColor: "#0f172a",
+              accentColor: "#334155",
+              logoUrl: null,
+              customTitleText: "Certificat de réussite",
+              signatureTitle: "Direction Tamayyuz",
+              fontFamily: "serif",
+            },
           });
         }
 

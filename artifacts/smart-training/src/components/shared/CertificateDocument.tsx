@@ -17,14 +17,24 @@ interface CertificateDocumentProps {
   issuedAt: string;
   code: string;
   examScore?: number | null;
-  template: CertificateTemplateStyle;
+  template?: CertificateTemplateStyle | null;
   lang: "ar" | "fr" | "en";
 }
 
+const defaultTemplateStyle: CertificateTemplateStyle = {
+  primaryColor: "#0f172a",
+  accentColor: "#334155",
+  logoUrl: null,
+  customTitleText: null,
+  signatureTitle: null,
+  fontFamily: "serif",
+};
+
 export function CertificateDocument({ studentName, courseName, coachName, issuedAt, code, examScore, template, lang }: CertificateDocumentProps) {
-  const nameFont = template.fontFamily === "sans" ? "inherit" : "Georgia, 'Times New Roman', serif";
-  const eyebrow = template.customTitleText?.trim() || { ar: "شهادة إتمام", fr: "Certificat de réussite", en: "Certificate of completion" }[lang];
-  const signatureLabel = template.signatureTitle?.trim() || { ar: "إدارة تميّز", fr: "Direction Tamayyuz", en: "Tamayyuz Board" }[lang];
+  const t = template || defaultTemplateStyle;
+  const nameFont = t.fontFamily === "sans" ? "inherit" : "Georgia, 'Times New Roman', serif";
+  const eyebrow = t.customTitleText?.trim() || { ar: "شهادة إتمام", fr: "Certificat de réussite", en: "Certificate of completion" }[lang];
+  const signatureLabel = t.signatureTitle?.trim() || { ar: "إدارة تميّز", fr: "Direction Tamayyuz", en: "Tamayyuz Board" }[lang];
   const localeMap = { ar: "ar-DZ", fr: "fr-DZ", en: "en-US" } as const;
   const issuedDate = new Date(issuedAt).toLocaleDateString(localeMap[lang], { day: "numeric", month: "long", year: "numeric" });
 

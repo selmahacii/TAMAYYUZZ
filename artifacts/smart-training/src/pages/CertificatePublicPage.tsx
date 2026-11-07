@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 interface Certificate {
   id: number; certificateCode: string; issuedAt: string;
   studentName: string; courseName: string; coachName: string;
-  examScore?: number | null; template: CertificateTemplateStyle;
+  examScore?: number | null; template?: CertificateTemplateStyle | null;
 }
 
 export default function CertificatePublicPage() {
