@@ -8,21 +8,28 @@ const NEON_HOST = "ep-spring-mode-ba1olrfk.c-8.eu-central-1.aws.neon.tech";
 const NEON_CONN = "postgresql://neondb_owner:npg_9uXMe4xpLZoC@ep-spring-mode-ba1olrfk-pooler.c-8.eu-central-1.aws.neon.tech/neondb?sslmode=require";
 const JWT_SECRET = "tamayuz-dev-secret-2026-prod-neon";
 
-async function queryNeon(sql, params = []) {
-  const res = await fetch(`https://${NEON_HOST}/sql`, {
-    method: "POST",
-    headers: {
-      "Neon-Connection-String": NEON_CONN,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query: sql, params }),
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Neon DB error (${res.status}): ${errText}`);
+async function queryNeon(sql, params = [], retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(`https://${NEON_HOST}/sql`, {
+        method: "POST",
+        headers: {
+          "Neon-Connection-String": NEON_CONN,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: sql, params }),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`Neon DB error (${res.status}): ${errText}`);
+      }
+      const data = await res.json();
+      return data.rows ?? [];
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise((r) => setTimeout(r, 400 * attempt));
+    }
   }
-  const data = await res.json();
-  return data.rows ?? [];
 }
 
 async function sha256(str) {
@@ -354,8 +361,8 @@ export default {
           );
         }
 
-        // GET /api/courses/categories & GET /api/categories
-        if ((url.pathname === "/api/courses/categories" || url.pathname === "/api/categories") && request.method === "GET") {
+        // GET /api/courses/categories
+        if (url.pathname === "/api/courses/categories" && request.method === "GET") {
           const rows = await queryNeon("SELECT DISTINCT category FROM courses WHERE is_published = true;");
           const cats = rows.map((r) => r.category);
           return jsonResponse(cats.length > 0 ? cats : ["Business", "Marketing", "Finance", "Technology", "Design"]);
@@ -1999,8 +2006,13 @@ export default {
 
         // GET /api/categories
         if (url.pathname === "/api/categories" && request.method === "GET") {
-          const cats = await queryNeon("SELECT * FROM categories ORDER BY name ASC;");
-          return jsonResponse(cats);
+          const cats = await queryNeon('SELECT id, name, description, created_at as "createdAt" FROM categories ORDER BY id ASC;');
+          return jsonResponse(cats.map((c) => ({
+            id: c.id,
+            name: c.name,
+            description: c.description ?? null,
+            createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+          })));
         }
 
         // POST /api/categories
@@ -2010,10 +2022,20 @@ export default {
           const { name, description } = await request.json();
           if (!name?.trim()) return jsonResponse({ error: "Nom requis" }, 400);
           const inserted = await queryNeon(
-            "INSERT INTO categories (name, description, created_at) VALUES ($1, $2, NOW()) RETURNING *;",
-            [name.trim(), description ?? null]
+            'INSERT INTO categories (name, description, created_at) VALUES ($1, $2, NOW()) RETURNING id, name, description, created_at as "createdAt";',
+            [name.trim(), description?.trim() || null]
           );
           return jsonResponse(inserted[0], 201);
+        }
+
+        // DELETE /api/categories/:id
+        const catDelMatch = url.pathname.match(/^\/api\/categories\/(\d+)$/);
+        if (catDelMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const catId = parseInt(catDelMatch[1]);
+          await queryNeon("DELETE FROM categories WHERE id = $1;", [catId]);
+          return jsonResponse({ success: true, message: "Catégorie supprimée" });
         }
 
         // GET /api/admin/settings
