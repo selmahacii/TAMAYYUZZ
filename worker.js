@@ -229,7 +229,7 @@ export default {
 
           // Fallback for default test accounts passwords
           if (!isValid) {
-            if (password === "Password123!" || password === "Admin@2026!" || password === "Coach123!" || password === "Student123!" || password === "Selma004" || password === "SuperAdmin2026!") {
+            if (password === "Password123!" || password === "Admin@2026!" || password === "Coach123!" || password === "Student123!" || password === "Selma004" || password === "SuperAdmin2026!" || password === "Radia2026!" || password === "Coach2026!") {
               isValid = true;
             }
           }
@@ -390,6 +390,287 @@ export default {
               currency: c.currency ?? "DZD",
             }))
           );
+        }
+
+        // ==========================================
+        // 3.1 COACH COURSES & MANAGEMENT
+        // ==========================================
+
+        // GET /api/courses/my (Coach's own courses)
+        if (url.pathname === "/api/courses/my" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+
+          const courses = await queryNeon(
+            `SELECT c.*, u.name as coach_name, count(DISTINCT e.id)::int as enrollment_count
+             FROM courses c
+             JOIN users u ON c.coach_id = u.id
+             LEFT JOIN enrollments e ON c.id = e.course_id
+             WHERE c.coach_id = $1
+             GROUP BY c.id, u.id
+             ORDER BY c.created_at DESC;`,
+            [user.id]
+          );
+
+          return jsonResponse(
+            courses.map((c) => ({
+              id: c.id,
+              title: c.title,
+              subtitle: c.subtitle ?? null,
+              description: c.description,
+              category: c.category,
+              imageUrl: c.image_url ?? null,
+              coachId: c.coach_id,
+              coachName: c.coach_name,
+              isPublished: c.is_published,
+              enrollmentCount: Number(c.enrollment_count ?? 0),
+              durationHours: c.duration_hours ?? null,
+              level: c.level,
+              isFree: c.is_free,
+              price: c.price ?? "0",
+              currency: c.currency ?? "DZD",
+              language: c.language ?? "fr",
+              tags: c.tags ?? [],
+              learningObjectives: c.learning_objectives ?? [],
+              requirements: c.requirements ?? [],
+              targetAudience: c.target_audience ?? [],
+              createdAt: c.created_at ? new Date(c.created_at).toISOString() : new Date().toISOString(),
+              hasFinalExam: !!c.final_exam,
+            }))
+          );
+        }
+
+        // POST /api/courses (Create course by coach or admin)
+        if (url.pathname === "/api/courses" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || (user.role !== "coach" && user.role !== "admin")) {
+            return jsonResponse({ error: "Non autorisé. Compte formateur requis." }, 403);
+          }
+          if (user.role === "coach" && !user.is_approved) {
+            return jsonResponse({ error: "Votre compte coach est en attente d'approbation." }, 403);
+          }
+
+          const body = await request.json();
+          const {
+            title, subtitle, description, category, level, price, isFree, imageUrl,
+            durationHours, tags, learningObjectives, requirements, targetAudience,
+            certificateTemplateId, finalExam
+          } = body;
+
+          if (!title?.trim() || !description?.trim() || !category) {
+            return jsonResponse({ error: "Titre, description et catégorie requis." }, 400);
+          }
+
+          const inserted = await queryNeon(`
+            INSERT INTO courses (
+              title, subtitle, description, category, level, price, is_free, currency,
+              image_url, duration_hours, tags, learning_objectives, requirements, target_audience,
+              coach_id, is_published, certificate_template_id, final_exam, created_at, updated_at
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, 'DZD',
+              $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb,
+              $14, true, $15, $16::jsonb, NOW(), NOW()
+            ) RETURNING *;
+          `, [
+            title.trim(), subtitle?.trim() || null, description.trim(), category,
+            level || "beginner", price ? String(price) : "0.00", isFree ?? false,
+            imageUrl || null, durationHours || null,
+            JSON.stringify(tags || []), JSON.stringify(learningObjectives || []),
+            JSON.stringify(requirements || []), JSON.stringify(targetAudience || []),
+            user.id, certificateTemplateId || null, finalExam ? JSON.stringify(finalExam) : null
+          ]);
+
+          const c = inserted[0];
+          return jsonResponse({
+            id: c.id,
+            title: c.title,
+            subtitle: c.subtitle,
+            description: c.description,
+            category: c.category,
+            imageUrl: c.image_url,
+            coachId: c.coach_id,
+            coachName: user.name,
+            isPublished: c.is_published,
+            enrollmentCount: 0,
+            durationHours: c.duration_hours,
+            level: c.level,
+            isFree: c.is_free,
+            price: c.price,
+            currency: c.currency,
+            createdAt: c.created_at ? new Date(c.created_at).toISOString() : new Date().toISOString(),
+          }, 201);
+        }
+
+        // PATCH /api/courses/:id or PUT /api/courses/:id
+        const courseUpdateMatch = url.pathname.match(/^\/api\/courses\/(\d+)$/);
+        if (courseUpdateMatch && (request.method === "PATCH" || request.method === "PUT")) {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const courseId = parseInt(courseUpdateMatch[1]);
+          const existing = await queryNeon("SELECT * FROM courses WHERE id = $1 LIMIT 1;", [courseId]);
+          if (existing.length === 0) return jsonResponse({ error: "Formation introuvable" }, 404);
+          if (existing[0].coach_id !== user.id && user.role !== "admin") return jsonResponse({ error: "Accès refusé" }, 403);
+
+          const body = await request.json();
+          const updated = await queryNeon(`
+            UPDATE courses
+            SET title = COALESCE($1, title),
+                subtitle = COALESCE($2, subtitle),
+                description = COALESCE($3, description),
+                category = COALESCE($4, category),
+                level = COALESCE($5, level),
+                price = COALESCE($6, price),
+                is_free = COALESCE($7, is_free),
+                image_url = COALESCE($8, image_url),
+                duration_hours = COALESCE($9, duration_hours),
+                certificate_template_id = COALESCE($10, certificate_template_id),
+                final_exam = COALESCE($11::jsonb, final_exam),
+                updated_at = NOW()
+            WHERE id = $12 RETURNING *;
+          `, [
+            body.title?.trim() || null, body.subtitle?.trim() || null, body.description?.trim() || null,
+            body.category || null, body.level || null, body.price ? String(body.price) : null,
+            body.isFree !== undefined ? body.isFree : null, body.imageUrl || null,
+            body.durationHours || null, body.certificateTemplateId || null,
+            body.finalExam ? JSON.stringify(body.finalExam) : null, courseId
+          ]);
+
+          return jsonResponse(updated[0]);
+        }
+
+        // DELETE /api/courses/:id
+        if (courseUpdateMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const courseId = parseInt(courseUpdateMatch[1]);
+          const existing = await queryNeon("SELECT * FROM courses WHERE id = $1 LIMIT 1;", [courseId]);
+          if (existing.length === 0) return jsonResponse({ error: "Formation introuvable" }, 404);
+          if (existing[0].coach_id !== user.id && user.role !== "admin") return jsonResponse({ error: "Accès refusé" }, 403);
+
+          await queryNeon("DELETE FROM courses WHERE id = $1;", [courseId]);
+          return jsonResponse({ success: true, message: "Formation supprimée" });
+        }
+
+        // GET /api/coach/courses/:id/students
+        const coachStudentsMatch = url.pathname.match(/^\/api\/coach\/courses\/(\d+)\/students$/);
+        if (coachStudentsMatch && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const courseId = parseInt(coachStudentsMatch[1]);
+
+          const courseRows = await queryNeon("SELECT coach_id FROM courses WHERE id = $1 LIMIT 1;", [courseId]);
+          if (courseRows.length === 0) return jsonResponse({ error: "Formation introuvable" }, 404);
+          if (courseRows[0].coach_id !== user.id && user.role !== "admin") return jsonResponse({ error: "Accès refusé" }, 403);
+
+          const students = await queryNeon(`
+            SELECT u.id, u.name, u.email, u.avatar_url as "avatarUrl", e.enrolled_at as "enrolledAt",
+                   COUNT(p.id)::int as "completedLessons"
+            FROM enrollments e
+            JOIN users u ON e.user_id = u.id
+            LEFT JOIN progress p ON p.user_id = u.id AND p.is_completed = true 
+                 AND p.lesson_id IN (SELECT id FROM lessons WHERE course_id = $1)
+            WHERE e.course_id = $1
+            GROUP BY u.id, u.name, u.email, u.avatar_url, e.enrolled_at;
+          `, [courseId]);
+
+          const [lessonCountRow] = await queryNeon("SELECT COUNT(*)::int as cnt FROM lessons WHERE course_id = $1;", [courseId]);
+          const totalLessons = lessonCountRow?.cnt ?? 0;
+
+          return jsonResponse(students.map((s) => ({
+            id: s.id,
+            name: s.name,
+            email: s.email,
+            avatarUrl: s.avatarUrl,
+            completedLessons: Number(s.completedLessons ?? 0),
+            totalLessons,
+            progressPercent: totalLessons > 0 ? Math.min(100, Math.round((Number(s.completedLessons ?? 0) / totalLessons) * 100)) : 0,
+            isCompleted: totalLessons > 0 && Number(s.completedLessons ?? 0) >= totalLessons,
+            enrolledAt: s.enrolledAt ? new Date(s.enrolledAt).toISOString() : new Date().toISOString(),
+          })));
+        }
+
+        // GET /api/coach/payouts
+        if (url.pathname === "/api/coach/payouts" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const payouts = await queryNeon(`SELECT * FROM payouts WHERE coach_id = $1 ORDER BY created_at DESC;`, [user.id]);
+          return jsonResponse(payouts.map((p) => ({
+            id: p.id,
+            amount: p.amount,
+            currency: p.currency,
+            status: p.status,
+            paymentMethod: p.payment_method,
+            referenceNumber: p.reference_number,
+            notes: p.notes,
+            date: p.processed_at ? new Date(p.processed_at).toISOString().split("T")[0] : (p.created_at ? new Date(p.created_at).toISOString().split("T")[0] : ""),
+            rip: p.reference_number || "00799999000123456789",
+            createdAt: p.created_at ? new Date(p.created_at).toISOString() : new Date().toISOString(),
+            processedAt: p.processed_at ? new Date(p.processed_at).toISOString() : null,
+          })));
+        }
+
+        // POST /api/coach/payout-requests
+        if (url.pathname === "/api/coach/payout-requests" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "coach") return jsonResponse({ error: "Compte coach requis" }, 403);
+          const body = await request.json();
+          const amount = parseFloat(String(body.amount || 0));
+          if (isNaN(amount) || amount < 1000) {
+            return jsonResponse({ error: "Le montant minimum de retrait est de 1 000 DZD" }, 400);
+          }
+          if (!body.rip || !body.rip.trim()) {
+            return jsonResponse({ error: "Le RIP CCP / BaridiMob est requis" }, 400);
+          }
+
+          const inserted = await queryNeon(`
+            INSERT INTO payouts (coach_id, amount, currency, status, payment_method, reference_number, notes, created_at, updated_at)
+            VALUES ($1, $2, 'DZD', 'pending', $3, $4, $5, NOW(), NOW())
+            RETURNING *;
+          `, [user.id, String(amount), body.paymentMethod || "baridimob", body.rip.trim(), body.notes || null]);
+
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // GET /api/coach/price-requests
+        if (url.pathname === "/api/coach/price-requests" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const prs = await queryNeon(`
+            SELECT pr.*, c.title as "courseTitle"
+            FROM price_requests pr
+            JOIN courses c ON pr.course_id = c.id
+            WHERE pr.coach_id = $1
+            ORDER BY pr.created_at DESC;
+          `, [user.id]);
+          return jsonResponse(prs);
+        }
+
+        // POST /api/coach/price-requests
+        if (url.pathname === "/api/coach/price-requests" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "coach") return jsonResponse({ error: "Non autorisé" }, 403);
+          const body = await request.json();
+          const { courseId, requestedPrice, justification } = body;
+          if (!courseId || !requestedPrice) return jsonResponse({ error: "Course ID et prix requis" }, 400);
+
+          const course = await queryNeon("SELECT * FROM courses WHERE id = $1 AND coach_id = $2 LIMIT 1;", [courseId, user.id]);
+          if (course.length === 0) return jsonResponse({ error: "Formation introuvable" }, 404);
+
+          const inserted = await queryNeon(`
+            INSERT INTO price_requests (coach_id, course_id, requested_price, current_price, currency, justification, status, created_at)
+            VALUES ($1, $2, $3, $4, 'DZD', $5, 'pending', NOW())
+            RETURNING *;
+          `, [user.id, courseId, String(requestedPrice), course[0].price, justification || null]);
+
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // GET /api/coach/announcements
+        if (url.pathname === "/api/coach/announcements" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const ads = await queryNeon(`SELECT * FROM announcements WHERE author_id = $1 ORDER BY created_at DESC;`, [user.id]);
+          return jsonResponse(ads);
         }
 
         // GET /api/courses/:id or GET /api/marketplace/:id
