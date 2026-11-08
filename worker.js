@@ -986,6 +986,147 @@ export default {
           );
         }
 
+        // ==========================================
+        // 10. NOTIFICATIONS
+        // ==========================================
+
+        // GET /api/notifications
+        if (url.pathname === "/api/notifications" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user) {
+            return jsonResponse({ notifications: [], unreadCount: 0 });
+          }
+
+          let notifs = await queryNeon(
+            `SELECT * FROM in_app_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50;`,
+            [user.id]
+          );
+
+          // If no notifications exist yet, generate friendly welcome notifications
+          if (notifs.length === 0) {
+            await queryNeon(
+              `INSERT INTO in_app_notifications (user_id, title, message, type, link, is_read, created_at)
+               VALUES ($1, '🎉 Bienvenue sur Tamayuz !', 'Accédez dès maintenant à votre espace de formation et découvrez les nouveaux cours certifiants.', 'info', '/student/courses', false, NOW() - INTERVAL '1 day'),
+                      ($1, '⭐ Certificats officiels vérifiables', 'Obtenez votre certificat d''excellence dès validation de l''examen final avec score supérieur à 70%.', 'success', '/student/certificates', false, NOW());`,
+              [user.id]
+            );
+            notifs = await queryNeon(
+              `SELECT * FROM in_app_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50;`,
+              [user.id]
+            );
+          }
+
+          const unreadCount = notifs.filter((n) => !n.is_read).length;
+          return jsonResponse({
+            notifications: notifs.map((n) => ({
+              id: n.id,
+              title: n.title,
+              message: n.message,
+              type: n.type || "info",
+              link: n.link ?? null,
+              isRead: !!n.is_read,
+              createdAt: n.created_at ? new Date(n.created_at).toISOString() : new Date().toISOString(),
+            })),
+            unreadCount,
+          });
+        }
+
+        // PATCH /api/notifications/mark-all-read
+        if (url.pathname === "/api/notifications/mark-all-read" && request.method === "PATCH") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+
+          await queryNeon("UPDATE in_app_notifications SET is_read = true WHERE user_id = $1;", [user.id]);
+          return jsonResponse({ success: true, message: "Toutes les notifications ont été marquées comme lues" });
+        }
+
+        // PATCH /api/notifications/:id/read
+        const notifReadMatch = url.pathname.match(/^\/api\/notifications\/(\d+)\/read$/);
+        if (notifReadMatch && request.method === "PATCH") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const notifId = parseInt(notifReadMatch[1]);
+
+          await queryNeon("UPDATE in_app_notifications SET is_read = true WHERE id = $1 AND user_id = $2;", [notifId, user.id]);
+          return jsonResponse({ success: true, message: "Notification marquée comme lue" });
+        }
+
+        // ==========================================
+        // 11. FILE UPLOADS & ASSET SERVING
+        // ==========================================
+
+        // POST /api/uploads
+        if (url.pathname === "/api/uploads" && request.method === "POST") {
+          try {
+            const formData = await request.formData();
+            const file = formData.get("file");
+            if (!file || typeof file === "string") {
+              return jsonResponse({ error: "Aucun fichier fourni" }, 400);
+            }
+
+            const rawName = file.name || "upload.png";
+            const ext = rawName.includes(".") ? rawName.slice(rawName.lastIndexOf(".")).toLowerCase() : ".png";
+            const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${ext}`;
+            const mimeType = file.type || "application/octet-stream";
+
+            const buffer = await file.arrayBuffer();
+            const bytes = new Uint8Array(buffer);
+
+            // Chunked conversion to avoid call stack limits on larger binary payloads
+            let binary = "";
+            const chunkSize = 8192;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+              binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            const base64Data = btoa(binary);
+
+            await queryNeon(
+              `INSERT INTO uploaded_files (filename, mime_type, data, created_at)
+               VALUES ($1, $2, $3, NOW());`,
+              [filename, mimeType, base64Data]
+            );
+
+            return jsonResponse(
+              {
+                url: `/api/uploads/${filename}`,
+                filename,
+                size: bytes.length,
+                mimetype: mimeType,
+              },
+              201
+            );
+          } catch (uploadErr) {
+            return jsonResponse({ error: uploadErr.message || "Échec du téléversement" }, 500);
+          }
+        }
+
+        // GET /api/uploads/:filename
+        const uploadGetMatch = url.pathname.match(/^\/api\/uploads\/([a-zA-Z0-9.\-_]+)$/);
+        if (uploadGetMatch && request.method === "GET") {
+          const filename = uploadGetMatch[1];
+          const rows = await queryNeon(
+            `SELECT mime_type, data FROM uploaded_files WHERE filename = $1 LIMIT 1;`,
+            [filename]
+          );
+
+          if (rows.length === 0) {
+            return new Response("Fichier introuvable", { status: 404 });
+          }
+
+          const fileRow = rows[0];
+          const binString = atob(fileRow.data);
+          const bytes = Uint8Array.from(binString, (c) => c.charCodeAt(0));
+
+          return new Response(bytes, {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": fileRow.mime_type,
+              "Cache-Control": "public, max-age=31536000, immutable",
+            },
+          });
+        }
+
         // Default 404 for any other API endpoint (Prevents returning object that breaks frontend Array.map)
         return jsonResponse({ error: `Route API non trouvée : ${url.pathname}` }, 404);
       } catch (err) {
