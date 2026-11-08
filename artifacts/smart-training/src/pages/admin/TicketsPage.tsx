@@ -70,7 +70,7 @@ export default function AdminTicketsPage() {
   const toggleExpand = (id: number) => setExpandedId((cur) => (cur === id ? null : id));
 
   const filtered = useMemo(() => tickets.filter((tk) => {
-    const matchSearch = !search || tk.subject.toLowerCase().includes(search.toLowerCase()) || tk.userName.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !search || (tk.subject && tk.subject.toLowerCase().includes(search.toLowerCase())) || (tk.userName && tk.userName.toLowerCase().includes(search.toLowerCase()));
     const matchStatus = statusFilter === "all" || tk.status === statusFilter;
     return matchSearch && matchStatus;
   }), [tickets, search, statusFilter]);

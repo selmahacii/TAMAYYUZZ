@@ -186,9 +186,9 @@ export default function AdminInvoicesPage() {
   const filteredInvoices = search
     ? invoices.filter(
         (inv) =>
-          inv.invoiceNumber.toLowerCase().includes(search.toLowerCase()) ||
-          inv.userName.toLowerCase().includes(search.toLowerCase()) ||
-          inv.userEmail.toLowerCase().includes(search.toLowerCase())
+          (inv.invoiceNumber && inv.invoiceNumber.toLowerCase().includes(search.toLowerCase())) ||
+          (inv.userName && inv.userName.toLowerCase().includes(search.toLowerCase())) ||
+          (inv.userEmail && inv.userEmail.toLowerCase().includes(search.toLowerCase()))
       )
     : invoices;
 

@@ -39,7 +39,7 @@ export default function AdminCoursesPage() {
   };
 
   const filtered = (courses ?? []).filter((c) => {
-    const matchSearch = !search || c.title.toLowerCase().includes(search.toLowerCase()) || c.coachName.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = !search || (c.title && c.title.toLowerCase().includes(search.toLowerCase())) || (c.coachName && c.coachName.toLowerCase().includes(search.toLowerCase()));
     const matchFilter = filter === "all" ? true : filter === "published" ? c.isPublished : !c.isPublished;
     return matchSearch && matchFilter;
   });

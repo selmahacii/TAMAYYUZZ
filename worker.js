@@ -2140,6 +2140,56 @@ export default {
           return jsonResponse(kb);
         }
 
+        // GET /api/knowledge-base (Public Help Center)
+        if (url.pathname === "/api/knowledge-base" && request.method === "GET") {
+          const category = url.searchParams.get("category");
+          const search = url.searchParams.get("search");
+
+          let query = "SELECT kb.*, u.name as \"authorName\" FROM knowledge_base kb LEFT JOIN users u ON kb.author_id = u.id WHERE kb.is_published = true";
+          const params = [];
+
+          if (category && category !== "all") {
+            params.push(category);
+            query += ` AND kb.category = $${params.length}`;
+          }
+
+          if (search && search.trim()) {
+            params.push(`%${search.trim().toLowerCase()}%`);
+            query += ` AND (LOWER(kb.title) LIKE $${params.length} OR LOWER(kb.content) LIKE $${params.length})`;
+          }
+
+          query += ' ORDER BY kb."order" ASC, kb.created_at DESC;';
+          const kb = await queryNeon(query, params);
+          return jsonResponse(kb.map((a) => ({
+            id: a.id,
+            authorName: a.authorName,
+            title: a.title,
+            content: a.content,
+            category: a.category,
+            viewCount: a.view_count ?? 0,
+            createdAt: a.created_at ? new Date(a.created_at).toISOString() : new Date().toISOString(),
+          })));
+        }
+
+        // GET /api/knowledge-base/:id
+        const kbSingleMatch = url.pathname.match(/^\/api\/knowledge-base\/(\d+)$/);
+        if (kbSingleMatch && request.method === "GET") {
+          const id = parseInt(kbSingleMatch[1]);
+          await queryNeon("UPDATE knowledge_base SET view_count = COALESCE(view_count, 0) + 1 WHERE id = $1;", [id]);
+          const rows = await queryNeon("SELECT kb.*, u.name as \"authorName\" FROM knowledge_base kb LEFT JOIN users u ON kb.author_id = u.id WHERE kb.id = $1 LIMIT 1;", [id]);
+          if (rows.length === 0) return jsonResponse({ error: "Article introuvable" }, 404);
+          const a = rows[0];
+          return jsonResponse({
+            id: a.id,
+            authorName: a.authorName,
+            title: a.title,
+            content: a.content,
+            category: a.category,
+            viewCount: a.view_count ?? 0,
+            createdAt: a.created_at ? new Date(a.created_at).toISOString() : new Date().toISOString(),
+          });
+        }
+
         // GET /api/admin/centers & GET /api/centers
         if ((url.pathname === "/api/admin/centers" || url.pathname === "/api/centers") && request.method === "GET") {
           const centers = await queryNeon("SELECT * FROM centers ORDER BY name ASC;");

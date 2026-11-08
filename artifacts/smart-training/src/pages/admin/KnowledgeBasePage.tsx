@@ -167,9 +167,9 @@ export default function AdminKnowledgeBasePage() {
   const filteredArticles = searchQuery
     ? articles.filter(
         (art) =>
-          art.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          art.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          art.category.toLowerCase().includes(searchQuery.toLowerCase())
+          (art.title && art.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (art.content && art.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (art.category && art.category.toLowerCase().includes(searchQuery.toLowerCase()))
       )
     : articles;
 

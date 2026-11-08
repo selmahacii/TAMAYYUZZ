@@ -70,9 +70,9 @@ export default function AdminPurchasesPage() {
   const filtered = search
     ? purchases.filter(
         (p) =>
-          p.userName.toLowerCase().includes(search.toLowerCase()) ||
-          p.courseTitle.toLowerCase().includes(search.toLowerCase()) ||
-          p.userEmail.toLowerCase().includes(search.toLowerCase()) ||
+          (p.userName && p.userName.toLowerCase().includes(search.toLowerCase())) ||
+          (p.courseTitle && p.courseTitle.toLowerCase().includes(search.toLowerCase())) ||
+          (p.userEmail && p.userEmail.toLowerCase().includes(search.toLowerCase())) ||
           (p.invoiceNumber && p.invoiceNumber.toLowerCase().includes(search.toLowerCase())) ||
           (p.couponCode && p.couponCode.toLowerCase().includes(search.toLowerCase()))
       )

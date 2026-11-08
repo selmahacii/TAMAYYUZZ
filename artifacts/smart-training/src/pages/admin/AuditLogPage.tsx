@@ -93,9 +93,9 @@ export default function AdminAuditLogPage() {
   const filtered = logs.filter((l) => {
     const matchesSearch =
       !search ||
-      l.action.toLowerCase().includes(search.toLowerCase()) ||
-      l.entity.toLowerCase().includes(search.toLowerCase()) ||
-      l.userName.toLowerCase().includes(search.toLowerCase());
+      (l.action && l.action.toLowerCase().includes(search.toLowerCase())) ||
+      (l.entity && l.entity.toLowerCase().includes(search.toLowerCase())) ||
+      (l.userName && l.userName.toLowerCase().includes(search.toLowerCase()));
 
     const matchesAction = actionFilter === "all" || l.action.startsWith(actionFilter);
     const matchesEntity = entityFilter === "all" || l.entity === entityFilter;

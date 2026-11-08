@@ -134,8 +134,8 @@ export default function AdminCategoriesPage() {
   };
 
   const getCourseCount = (catName: string) => {
-    if (!reports?.categoryDistribution) return 0;
-    const match = reports.categoryDistribution.find(d => d.category.toLowerCase() === catName.toLowerCase());
+    if (!reports?.categoryDistribution || !catName) return 0;
+    const match = reports.categoryDistribution.find(d => d && d.category && d.category.toLowerCase() === catName.toLowerCase());
     return match ? match.count : 0;
   };
 
