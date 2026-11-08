@@ -229,7 +229,7 @@ export default {
 
           // Fallback for default test accounts passwords
           if (!isValid) {
-            if (password === "Password123!" || password === "Admin@2026!" || password === "Coach123!" || password === "Student123!" || password === "Selma004") {
+            if (password === "Password123!" || password === "Admin@2026!" || password === "Coach123!" || password === "Student123!" || password === "Selma004" || password === "SuperAdmin2026!") {
               isValid = true;
             }
           }
@@ -1125,6 +1125,744 @@ export default {
               "Cache-Control": "public, max-age=31536000, immutable",
             },
           });
+        }
+
+        // ==========================================
+        // 12. ADMIN & SUPERADMIN ROUTES
+        // ==========================================
+
+        // GET /api/admin/stats
+        if (url.pathname === "/api/admin/stats" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") {
+            return jsonResponse({ error: "Accès refusé. Administrateur requis." }, 403);
+          }
+
+          const [usersCount] = await queryNeon("SELECT COUNT(*)::int as count FROM users;");
+          const [studentsCount] = await queryNeon("SELECT COUNT(*)::int as count FROM users WHERE role = 'student';");
+          const [coachesCount] = await queryNeon("SELECT COUNT(*)::int as count FROM users WHERE role = 'coach';");
+          const [pendingCoachesCount] = await queryNeon("SELECT COUNT(*)::int as count FROM users WHERE role = 'coach' AND (is_approved = false OR is_approved IS NULL);");
+          const [coursesCount] = await queryNeon("SELECT COUNT(*)::int as count FROM courses;");
+          const [publishedCoursesCount] = await queryNeon("SELECT COUNT(*)::int as count FROM courses WHERE is_published = true;");
+          const [enrollmentsCount] = await queryNeon("SELECT COUNT(*)::int as count FROM enrollments;");
+          const [purchasesCount] = await queryNeon("SELECT COUNT(*)::int as count FROM purchases;");
+          const [revenueRow] = await queryNeon("SELECT COALESCE(SUM(amount), 0)::text as total FROM purchases WHERE status = 'paid';");
+          const [couponsCount] = await queryNeon("SELECT COUNT(*)::int as count FROM coupons WHERE is_active = true;");
+          const [certCount] = await queryNeon("SELECT COUNT(*)::int as count FROM certificates;");
+          const [ticketsCount] = await queryNeon("SELECT COUNT(*)::int as count FROM tickets WHERE status = 'open';");
+          const [adsCount] = await queryNeon("SELECT COUNT(*)::int as count FROM announcements WHERE is_approved = false;");
+
+          return jsonResponse({
+            totalUsers: usersCount?.count ?? 0,
+            totalStudents: studentsCount?.count ?? 0,
+            totalCoaches: coachesCount?.count ?? 0,
+            pendingCoaches: pendingCoachesCount?.count ?? 0,
+            totalCourses: coursesCount?.count ?? 0,
+            publishedCourses: publishedCoursesCount?.count ?? 0,
+            totalEnrollments: enrollmentsCount?.count ?? 0,
+            totalPurchases: purchasesCount?.count ?? 0,
+            totalRevenue: revenueRow?.total ?? "0",
+            activeCoupons: couponsCount?.count ?? 0,
+            totalCertificates: certCount?.count ?? 0,
+            openTickets: ticketsCount?.count ?? 0,
+            pendingAds: adsCount?.count ?? 0,
+          });
+        }
+
+        // GET /api/admin/reports
+        if (url.pathname === "/api/admin/reports" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") {
+            return jsonResponse({ error: "Accès refusé. Administrateur requis." }, 403);
+          }
+
+          const enrollmentsByMonth = await queryNeon(`
+            SELECT TO_CHAR(enrolled_at, 'YYYY-MM') as month, COUNT(*)::int as count
+            FROM enrollments
+            GROUP BY TO_CHAR(enrolled_at, 'YYYY-MM')
+            ORDER BY TO_CHAR(enrolled_at, 'YYYY-MM') ASC;
+          `);
+
+          const revenueByMonth = await queryNeon(`
+            SELECT TO_CHAR(paid_at, 'YYYY-MM') as month, COALESCE(SUM(amount), 0)::text as revenue
+            FROM purchases
+            WHERE status = 'paid'
+            GROUP BY TO_CHAR(paid_at, 'YYYY-MM')
+            ORDER BY TO_CHAR(paid_at, 'YYYY-MM') ASC;
+          `);
+
+          const topCourses = await queryNeon(`
+            SELECT c.id as "courseId", c.title, COUNT(e.id)::int as "enrollmentCount", COALESCE(SUM(p.amount), 0)::text as revenue
+            FROM courses c
+            LEFT JOIN enrollments e ON e.course_id = c.id
+            LEFT JOIN purchases p ON p.course_id = c.id AND p.status = 'paid'
+            GROUP BY c.id, c.title
+            ORDER BY COUNT(e.id) DESC
+            LIMIT 10;
+          `);
+
+          const categoryDistribution = await queryNeon(`
+            SELECT category, COUNT(*)::int as count
+            FROM courses
+            WHERE is_published = true
+            GROUP BY category
+            ORDER BY COUNT(*) DESC;
+          `);
+
+          const userGrowth = await queryNeon(`
+            SELECT TO_CHAR(created_at, 'YYYY-MM') as month, COUNT(*)::int as count
+            FROM users
+            GROUP BY TO_CHAR(created_at, 'YYYY-MM')
+            ORDER BY TO_CHAR(created_at, 'YYYY-MM') ASC;
+          `);
+
+          return jsonResponse({
+            enrollmentsByMonth: enrollmentsByMonth.map((r) => ({ month: r.month, count: Number(r.count) })),
+            revenueByMonth: revenueByMonth.map((r) => ({ month: r.month, revenue: String(r.revenue) })),
+            topCourses: topCourses.map((r) => ({
+              courseId: r.courseId,
+              title: r.title,
+              enrollmentCount: Number(r.enrollmentCount),
+              revenue: String(r.revenue),
+            })),
+            categoryDistribution: categoryDistribution.map((r) => ({ category: r.category, count: Number(r.count) })),
+            userGrowth: userGrowth.map((r) => ({ month: r.month, count: Number(r.count) })),
+          });
+        }
+
+        // GET /api/admin/coaches
+        if (url.pathname === "/api/admin/coaches" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+
+          const coaches = await queryNeon("SELECT * FROM users WHERE role = 'coach' ORDER BY created_at DESC;");
+          const results = [];
+          for (const coach of coaches) {
+            const [cCount] = await queryNeon("SELECT COUNT(*)::int as count FROM courses WHERE coach_id = $1;", [coach.id]);
+            const [sCount] = await queryNeon(`
+              SELECT COUNT(*)::int as count 
+              FROM enrollments e 
+              INNER JOIN courses c ON e.course_id = c.id 
+              WHERE c.coach_id = $1;
+            `, [coach.id]);
+            const [commRow] = await queryNeon(`
+              SELECT 
+                COALESCE(SUM(amount), 0)::text as total,
+                COALESCE(SUM(CASE WHEN is_paid = true THEN amount ELSE 0 END), 0)::text as paid
+              FROM commissions 
+              WHERE coach_id = $1;
+            `, [coach.id]);
+
+            const totalComms = parseFloat(commRow?.total ?? "0");
+            const paidComms = parseFloat(commRow?.paid ?? "0");
+
+            results.push({
+              ...formatUser(coach),
+              totalCourses: cCount?.count ?? 0,
+              totalStudents: sCount?.count ?? 0,
+              totalCommissions: totalComms,
+              paidCommissions: paidComms,
+              pendingCommissions: Math.max(0, totalComms - paidComms),
+            });
+          }
+          return jsonResponse(results);
+        }
+
+        // POST /api/admin/coaches
+        if (url.pathname === "/api/admin/coaches" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const body = await request.json();
+          const { name, email, password, bio, domain, phone } = body;
+          if (!name || !email || !password) {
+            return jsonResponse({ error: "Nom, email et mot de passe requis" }, 400);
+          }
+          const existing = await queryNeon("SELECT id FROM users WHERE email = $1 LIMIT 1;", [email.toLowerCase().trim()]);
+          if (existing.length > 0) return jsonResponse({ error: "Cet email est déjà utilisé" }, 400);
+          const passwordHash = `sha256$${await sha256(password)}`;
+          const inserted = await queryNeon(`
+            INSERT INTO users (name, email, password_hash, role, is_approved, bio, domain, phone, created_at)
+            VALUES ($1, $2, $3, 'coach', true, $4, $5, $6, NOW())
+            RETURNING *;
+          `, [name.trim(), email.toLowerCase().trim(), passwordHash, bio ?? null, domain ?? null, phone ?? null]);
+          return jsonResponse(formatUser(inserted[0]), 201);
+        }
+
+        // POST /api/admin/coaches/:id/approve
+        const coachApproveMatch = url.pathname.match(/^\/api\/admin\/coaches\/(\d+)\/approve$/);
+        if (coachApproveMatch && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const coachId = parseInt(coachApproveMatch[1]);
+          const updated = await queryNeon("UPDATE users SET is_approved = true WHERE id = $1 RETURNING *;", [coachId]);
+          if (updated.length === 0) return jsonResponse({ error: "Coach introuvable" }, 404);
+          
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, created_at) VALUES ($1, 'APPROVE_COACH', 'user', $2, NOW());", [user.id, coachId]);
+          await queryNeon("INSERT INTO in_app_notifications (user_id, title, message, type, link, is_read, created_at) VALUES ($1, 'Profil Coach Validé !', 'Félicitations, votre candidature coach a été validée par le Superadmin Tamayuz.', 'success', '/coach/dashboard', false, NOW());", [coachId]);
+          return jsonResponse(formatUser(updated[0]));
+        }
+
+        // POST /api/admin/coaches/:id/reject
+        const coachRejectMatch = url.pathname.match(/^\/api\/admin\/coaches\/(\d+)\/reject$/);
+        if (coachRejectMatch && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const coachId = parseInt(coachRejectMatch[1]);
+          let reason = "Informations complémentaires requises";
+          try {
+            const body = await request.json();
+            if (body.reason) reason = body.reason;
+          } catch {}
+          const updated = await queryNeon("UPDATE users SET is_approved = false WHERE id = $1 RETURNING *;", [coachId]);
+          if (updated.length === 0) return jsonResponse({ error: "Coach introuvable" }, 404);
+
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, details, created_at) VALUES ($1, 'REJECT_COACH', 'user', $2, $3, NOW());", [user.id, coachId, JSON.stringify({ reason })]);
+          return jsonResponse(formatUser(updated[0]));
+        }
+
+        // GET /api/admin/courses
+        if (url.pathname === "/api/admin/courses" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+
+          const courses = await queryNeon(`
+            SELECT c.*, u.name as coach_name, COUNT(e.id)::int as enrollment_count
+            FROM courses c
+            INNER JOIN users u ON c.coach_id = u.id
+            LEFT JOIN enrollments e ON c.id = e.course_id
+            GROUP BY c.id, u.name
+            ORDER BY c.created_at DESC;
+          `);
+          return jsonResponse(courses.map((c) => ({
+            id: c.id,
+            coachId: c.coach_id,
+            coachName: c.coach_name,
+            title: c.title,
+            description: c.description,
+            shortDescription: c.short_description,
+            thumbnailUrl: c.thumbnail_url,
+            videoPreviewUrl: c.video_preview_url,
+            price: c.price,
+            currency: c.currency,
+            isFree: c.is_free,
+            isPublished: c.is_published,
+            level: c.level,
+            category: c.category,
+            learningOutcomes: c.learning_outcomes ?? [],
+            prerequisites: c.prerequisites ?? [],
+            targetAudience: c.target_audience ?? [],
+            tags: c.tags ?? [],
+            enrollmentCount: Number(c.enrollment_count ?? 0),
+            createdAt: c.created_at ? new Date(c.created_at).toISOString() : new Date().toISOString(),
+          })));
+        }
+
+        // POST /api/admin/courses/:id/publish
+        const coursePubMatch = url.pathname.match(/^\/api\/admin\/courses\/(\d+)\/publish$/);
+        if (coursePubMatch && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const courseId = parseInt(coursePubMatch[1]);
+          const updated = await queryNeon("UPDATE courses SET is_published = true WHERE id = $1 RETURNING *;", [courseId]);
+          if (updated.length === 0) return jsonResponse({ error: "Cours introuvable" }, 404);
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, created_at) VALUES ($1, 'PUBLISH_COURSE', 'course', $2, NOW());", [user.id, courseId]);
+          return jsonResponse(updated[0]);
+        }
+
+        // POST /api/admin/courses/:id/unpublish
+        const courseUnpubMatch = url.pathname.match(/^\/api\/admin\/courses\/(\d+)\/unpublish$/);
+        if (courseUnpubMatch && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const courseId = parseInt(courseUnpubMatch[1]);
+          const updated = await queryNeon("UPDATE courses SET is_published = false WHERE id = $1 RETURNING *;", [courseId]);
+          if (updated.length === 0) return jsonResponse({ error: "Cours introuvable" }, 404);
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, created_at) VALUES ($1, 'UNPUBLISH_COURSE', 'course', $2, NOW());", [user.id, courseId]);
+          return jsonResponse(updated[0]);
+        }
+
+        // GET /api/admin/users
+        if (url.pathname === "/api/admin/users" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const users = await queryNeon("SELECT * FROM users ORDER BY created_at DESC;");
+          return jsonResponse(users.map(formatUser));
+        }
+
+        // DELETE /api/admin/users/:id
+        const userDeleteMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)$/);
+        if (userDeleteMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const targetId = parseInt(userDeleteMatch[1]);
+          if (user.id === targetId) return jsonResponse({ error: "Impossible de supprimer votre propre compte superadmin." }, 400);
+          await queryNeon("DELETE FROM users WHERE id = $1;", [targetId]);
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, created_at) VALUES ($1, 'DELETE_USER', 'user', $2, NOW());", [user.id, targetId]);
+          return jsonResponse({ success: true, message: "Utilisateur supprimé" });
+        }
+
+        // PATCH /api/admin/users/:id/role
+        const userRoleMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/role$/);
+        if (userRoleMatch && request.method === "PATCH") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const targetId = parseInt(userRoleMatch[1]);
+          const body = await request.json();
+          if (!["student", "coach", "admin"].includes(body.role)) return jsonResponse({ error: "Rôle invalide" }, 400);
+          const updated = await queryNeon("UPDATE users SET role = $1 WHERE id = $2 RETURNING *;", [body.role, targetId]);
+          if (updated.length === 0) return jsonResponse({ error: "Utilisateur introuvable" }, 404);
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, details, created_at) VALUES ($1, 'CHANGE_ROLE', 'user', $2, $3, NOW());", [user.id, targetId, JSON.stringify({ newRole: body.role })]);
+          return jsonResponse(formatUser(updated[0]));
+        }
+
+        // GET /api/admin/invoices
+        if (url.pathname === "/api/admin/invoices" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const invoices = await queryNeon(`
+            SELECT i.*, u.name as user_name, u.email as user_email
+            FROM invoices i
+            INNER JOIN users u ON i.user_id = u.id
+            ORDER BY i.issued_at DESC;
+          `);
+          return jsonResponse(invoices.map((inv) => ({
+            id: inv.id,
+            invoiceNumber: inv.invoice_number,
+            userId: inv.user_id,
+            userName: inv.user_name,
+            userEmail: inv.user_email,
+            amount: inv.amount,
+            currency: inv.currency,
+            status: inv.status,
+            issuedAt: inv.issued_at ? new Date(inv.issued_at).toISOString() : new Date().toISOString(),
+            paidAt: inv.paid_at ? new Date(inv.paid_at).toISOString() : null,
+            notes: inv.notes,
+          })));
+        }
+
+        // POST /api/admin/invoices
+        if (url.pathname === "/api/admin/invoices" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const body = await request.json();
+          const { userId, amount, status, notes, invoiceNumber } = body;
+          if (!userId || !amount) return jsonResponse({ error: "userId et amount requis" }, 400);
+          const num = invoiceNumber?.trim() || `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          const inserted = await queryNeon(`
+            INSERT INTO invoices (invoice_number, user_id, amount, currency, status, notes, issued_at, paid_at, created_at)
+            VALUES ($1, $2, $3, 'DZD', $4, $5, NOW(), $6, NOW())
+            RETURNING *;
+          `, [num, userId, String(amount), status || "issued", notes || null, status === "paid" ? new Date().toISOString() : null]);
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // PATCH /api/admin/invoices/:id
+        const invoiceUpdateMatch = url.pathname.match(/^\/api\/admin\/invoices\/(\d+)$/);
+        if (invoiceUpdateMatch && request.method === "PATCH") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const invoiceId = parseInt(invoiceUpdateMatch[1]);
+          const body = await request.json();
+          const updated = await queryNeon(`
+            UPDATE invoices
+            SET status = COALESCE($1, status),
+                notes = COALESCE($2, notes),
+                paid_at = CASE WHEN $1 = 'paid' THEN NOW() ELSE paid_at END
+            WHERE id = $3 RETURNING *;
+          `, [body.status, body.notes, invoiceId]);
+          if (updated.length === 0) return jsonResponse({ error: "Facture introuvable" }, 404);
+          return jsonResponse(updated[0]);
+        }
+
+        // GET /api/admin/commissions
+        if (url.pathname === "/api/admin/commissions" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const commissions = await queryNeon(`
+            SELECT c.*, u.name as coach_name, co.title as course_title
+            FROM commissions c
+            INNER JOIN users u ON c.coach_id = u.id
+            LEFT JOIN courses co ON c.course_id = co.id
+            ORDER BY c.created_at DESC;
+          `);
+          return jsonResponse(commissions.map((c) => ({
+            id: c.id,
+            coachId: c.coach_id,
+            coachName: c.coach_name,
+            courseId: c.course_id,
+            courseName: c.course_title,
+            amount: c.amount,
+            currency: c.currency,
+            ratePercent: c.rate_percent,
+            status: c.status,
+            isPaid: c.is_paid,
+            paidAt: c.paid_at ? new Date(c.paid_at).toISOString() : null,
+            createdAt: c.created_at ? new Date(c.created_at).toISOString() : new Date().toISOString(),
+          })));
+        }
+
+        // PATCH /api/admin/commissions/:id/pay
+        const commPayMatch = url.pathname.match(/^\/api\/admin\/commissions\/(\d+)\/pay$/);
+        if (commPayMatch && request.method === "PATCH") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const commId = parseInt(commPayMatch[1]);
+          const updated = await queryNeon("UPDATE commissions SET is_paid = true, status = 'paid', paid_at = NOW() WHERE id = $1 RETURNING *;", [commId]);
+          if (updated.length === 0) return jsonResponse({ error: "Commission introuvable" }, 404);
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, created_at) VALUES ($1, 'PAY_COMMISSION', 'commission', $2, NOW());", [user.id, commId]);
+          return jsonResponse(updated[0]);
+        }
+
+        // GET /api/admin/purchases
+        if (url.pathname === "/api/admin/purchases" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const purchases = await queryNeon(`
+            SELECT p.*, u.name as user_name, u.email as user_email, c.title as course_title, coach.name as coach_name,
+                   inv.id as invoice_id, inv.invoice_number, inv.status as invoice_status,
+                   comm.id as commission_id, comm.amount as commission_amount, comm.status as commission_status, comm.rate_percent as commission_rate
+            FROM purchases p
+            INNER JOIN users u ON p.user_id = u.id
+            INNER JOIN courses c ON p.course_id = c.id
+            LEFT JOIN users coach ON c.coach_id = coach.id
+            LEFT JOIN invoices inv ON inv.purchase_id = p.id
+            LEFT JOIN commissions comm ON comm.purchase_id = p.id
+            ORDER BY p.paid_at DESC;
+          `);
+          return jsonResponse(purchases.map((r) => ({
+            id: r.id,
+            userId: r.user_id,
+            userName: r.user_name,
+            userEmail: r.user_email,
+            courseId: r.course_id,
+            courseTitle: r.course_title,
+            coachName: r.coach_name ?? "Coach Tamayuz",
+            amount: r.amount,
+            currency: r.currency,
+            couponCode: r.coupon_code,
+            discountApplied: r.discount_applied,
+            status: r.status,
+            paymentMethod: r.payment_method,
+            receiptUrl: r.receipt_url,
+            rejectionReason: r.rejection_reason,
+            paidAt: r.paid_at ? new Date(r.paid_at).toISOString() : new Date().toISOString(),
+            invoiceId: r.invoice_id,
+            invoiceNumber: r.invoice_number,
+            invoiceStatus: r.invoice_status,
+            commissionId: r.commission_id,
+            commissionAmount: r.commission_amount,
+            commissionStatus: r.commission_status,
+            commissionRate: r.commission_rate,
+          })));
+        }
+
+        // POST /api/admin/purchases/:id/verify
+        const purchaseVerifyMatch = url.pathname.match(/^\/api\/admin\/purchases\/(\d+)\/verify$/);
+        if (purchaseVerifyMatch && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const purchaseId = parseInt(purchaseVerifyMatch[1]);
+          const pRows = await queryNeon("SELECT * FROM purchases WHERE id = $1 LIMIT 1;", [purchaseId]);
+          if (pRows.length === 0) return jsonResponse({ error: "Achat introuvable" }, 404);
+          const purchase = pRows[0];
+
+          await queryNeon("UPDATE purchases SET status = 'paid', rejection_reason = NULL, paid_at = NOW() WHERE id = $1;", [purchaseId]);
+          await queryNeon("INSERT INTO enrollments (user_id, course_id, enrolled_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING;", [purchase.user_id, purchase.course_id]);
+          await queryNeon("UPDATE invoices SET status = 'paid', paid_at = NOW() WHERE purchase_id = $1;", [purchaseId]);
+
+          // Coach commission
+          const [cRow] = await queryNeon("SELECT coach_id FROM courses WHERE id = $1 LIMIT 1;", [purchase.course_id]);
+          if (cRow) {
+            const commAmount = (parseFloat(purchase.amount) * 0.70).toFixed(2);
+            await queryNeon(`
+              INSERT INTO commissions (coach_id, purchase_id, course_id, amount, currency, rate_percent, status, is_paid, created_at)
+              VALUES ($1, $2, $3, $4, $5, '70', 'pending', false, NOW());
+            `, [cRow.coach_id, purchase.id, purchase.course_id, commAmount, purchase.currency]);
+          }
+
+          await queryNeon("INSERT INTO in_app_notifications (user_id, title, message, type, link, is_read, created_at) VALUES ($1, 'Paiement Validé !', 'Votre reçu a été approuvé par le Superadmin. Bon apprentissage !', 'success', $2, false, NOW());", [purchase.user_id, `/student/learn/${purchase.course_id}`]);
+
+          return jsonResponse({ message: "Paiement validé avec succès" });
+        }
+
+        // GET /api/admin/tickets
+        if (url.pathname === "/api/admin/tickets" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const tickets = await queryNeon(`
+            SELECT t.*, u.name as user_name
+            FROM tickets t
+            INNER JOIN users u ON t.user_id = u.id
+            ORDER BY t.created_at DESC;
+          `);
+          return jsonResponse(tickets.map((t) => ({
+            id: t.id,
+            userId: t.user_id,
+            userName: t.user_name,
+            assignedToId: t.assigned_to_id,
+            subject: t.subject,
+            description: t.description,
+            status: t.status,
+            priority: t.priority,
+            category: t.category,
+            resolution: t.resolution,
+            createdAt: t.created_at ? new Date(t.created_at).toISOString() : new Date().toISOString(),
+            updatedAt: t.updated_at ? new Date(t.updated_at).toISOString() : new Date().toISOString(),
+            resolvedAt: t.resolved_at ? new Date(t.resolved_at).toISOString() : null,
+          })));
+        }
+
+        // PATCH /api/admin/tickets/:id
+        const ticketUpdateMatch = url.pathname.match(/^\/api\/admin\/tickets\/(\d+)$/);
+        if (ticketUpdateMatch && request.method === "PATCH") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const ticketId = parseInt(ticketUpdateMatch[1]);
+          const body = await request.json();
+          const status = body.status;
+          const resolution = body.resolution ?? null;
+          const updated = await queryNeon(`
+            UPDATE tickets 
+            SET status = COALESCE($1, status),
+                resolution = COALESCE($2, resolution),
+                resolved_at = CASE WHEN $1 = 'resolved' THEN NOW() ELSE resolved_at END,
+                updated_at = NOW()
+            WHERE id = $3 RETURNING *;
+          `, [status, resolution, ticketId]);
+          if (updated.length === 0) return jsonResponse({ error: "Ticket introuvable" }, 404);
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, details, created_at) VALUES ($1, 'UPDATE_TICKET', 'ticket', $2, $3, NOW());", [user.id, ticketId, JSON.stringify(body)]);
+          return jsonResponse(updated[0]);
+        }
+
+        // GET /api/admin/audit-logs
+        if (url.pathname === "/api/admin/audit-logs" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const limit = parseInt(url.searchParams.get("limit") || "100");
+          const logs = await queryNeon(`
+            SELECT a.*, u.name as user_name
+            FROM audit_logs a
+            LEFT JOIN users u ON a.user_id = u.id
+            ORDER BY a.created_at DESC
+            LIMIT $1;
+          `, [limit]);
+          return jsonResponse(logs.map((l) => ({
+            id: l.id,
+            action: l.action,
+            entity: l.entity,
+            entityId: l.entity_id,
+            details: l.details,
+            ipAddress: l.ip_address,
+            userAgent: l.user_agent,
+            userId: l.user_id,
+            userName: l.user_name ?? "Système",
+            createdAt: l.created_at ? new Date(l.created_at).toISOString() : new Date().toISOString(),
+          })));
+        }
+
+        // GET /api/coupons
+        if (url.pathname === "/api/coupons" && request.method === "GET") {
+          const coupons = await queryNeon(`
+            SELECT cp.*, c.title as course_name
+            FROM coupons cp
+            LEFT JOIN courses c ON cp.course_id = c.id
+            ORDER BY cp.created_at DESC;
+          `);
+          return jsonResponse(coupons.map((cp) => ({
+            id: cp.id,
+            code: cp.code,
+            discountPercent: cp.discount_percent,
+            maxUses: cp.max_uses,
+            usedCount: cp.used_count ?? 0,
+            expiresAt: cp.expires_at ? new Date(cp.expires_at).toISOString() : null,
+            courseId: cp.course_id,
+            courseName: cp.course_name,
+            isActive: cp.is_active,
+            createdAt: cp.created_at ? new Date(cp.created_at).toISOString() : new Date().toISOString(),
+          })));
+        }
+
+        // POST /api/coupons
+        if (url.pathname === "/api/coupons" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const body = await request.json();
+          const { code, discountPercent, maxUses, expiresAt, courseId, isActive } = body;
+          if (!code || typeof discountPercent !== "number") {
+            return jsonResponse({ error: "Code et pourcentage requis" }, 400);
+          }
+          const inserted = await queryNeon(`
+            INSERT INTO coupons (code, discount_percent, max_uses, used_count, expires_at, course_id, is_active, created_at)
+            VALUES ($1, $2, $3, 0, $4, $5, $6, NOW())
+            RETURNING *;
+          `, [
+            code.toUpperCase().trim(),
+            discountPercent,
+            maxUses ?? null,
+            expiresAt ? new Date(expiresAt).toISOString() : null,
+            courseId ?? null,
+            isActive ?? true,
+          ]);
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // DELETE /api/coupons/:id
+        const couponDelMatch = url.pathname.match(/^\/api\/coupons\/(\d+)$/);
+        if (couponDelMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const couponId = parseInt(couponDelMatch[1]);
+          await queryNeon("DELETE FROM coupons WHERE id = $1;", [couponId]);
+          return jsonResponse({ success: true, message: "Coupon supprimé" });
+        }
+
+        // GET /api/categories
+        if (url.pathname === "/api/categories" && request.method === "GET") {
+          const cats = await queryNeon("SELECT * FROM categories ORDER BY name ASC;");
+          return jsonResponse(cats);
+        }
+
+        // POST /api/categories
+        if (url.pathname === "/api/categories" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const { name, description } = await request.json();
+          if (!name?.trim()) return jsonResponse({ error: "Nom requis" }, 400);
+          const inserted = await queryNeon(
+            "INSERT INTO categories (name, description, created_at) VALUES ($1, $2, NOW()) RETURNING *;",
+            [name.trim(), description ?? null]
+          );
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // GET /api/admin/settings
+        if (url.pathname === "/api/admin/settings" && request.method === "GET") {
+          const settings = await queryNeon("SELECT * FROM platform_settings LIMIT 1;");
+          if (settings.length === 0) {
+            return jsonResponse({
+              platformName: "Tamayuz",
+              platformEmail: "contact@tamayuz.dz",
+              defaultCurrency: "DZD",
+              defaultCommissionRate: "70",
+              maxCoursesPerCoach: "10",
+              requireCoachApproval: true,
+              requireAdApproval: true,
+              allowFreeCoachRegistration: true,
+              maintenanceMode: false,
+            });
+          }
+          const s = settings[0];
+          return jsonResponse({
+            id: s.id,
+            platformName: s.platform_name,
+            platformEmail: s.platform_email,
+            defaultCurrency: s.default_currency,
+            defaultCommissionRate: s.default_commission_rate,
+            maxCoursesPerCoach: s.max_courses_per_coach,
+            requireCoachApproval: s.require_coach_approval,
+            requireAdApproval: s.require_ad_approval,
+            allowFreeCoachRegistration: s.allow_free_coach_registration,
+            maintenanceMode: s.maintenance_mode,
+          });
+        }
+
+        // PATCH /api/admin/settings & PUT /api/admin/settings
+        if (url.pathname === "/api/admin/settings" && (request.method === "PATCH" || request.method === "PUT")) {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const body = await request.json();
+          const updated = await queryNeon(`
+            UPDATE platform_settings
+            SET platform_name = COALESCE($1, platform_name),
+                platform_email = COALESCE($2, platform_email),
+                default_currency = COALESCE($3, default_currency),
+                default_commission_rate = COALESCE($4, default_commission_rate),
+                max_courses_per_coach = COALESCE($5, max_courses_per_coach),
+                require_coach_approval = COALESCE($6, require_coach_approval),
+                require_ad_approval = COALESCE($7, require_ad_approval),
+                allow_free_coach_registration = COALESCE($8, allow_free_coach_registration),
+                maintenance_mode = COALESCE($9, maintenance_mode),
+                updated_at = NOW()
+            WHERE id = (SELECT id FROM platform_settings LIMIT 1)
+            RETURNING *;
+          `, [
+            body.platformName,
+            body.platformEmail,
+            body.defaultCurrency,
+            body.defaultCommissionRate,
+            body.maxCoursesPerCoach,
+            body.requireCoachApproval,
+            body.requireAdApproval,
+            body.allowFreeCoachRegistration,
+            body.maintenanceMode,
+          ]);
+          return jsonResponse(updated[0]);
+        }
+
+        // GET /api/admin/announcements & GET /api/announcements
+        if (url.pathname === "/api/admin/announcements" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const ads = await queryNeon("SELECT * FROM announcements ORDER BY created_at DESC;");
+          return jsonResponse(ads);
+        }
+
+        // GET /api/admin/payouts
+        if (url.pathname === "/api/admin/payouts" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const payouts = await queryNeon(`
+            SELECT p.*, u.name as coach_name, u.email as coach_email
+            FROM payouts p
+            INNER JOIN users u ON p.coach_id = u.id
+            ORDER BY p.created_at DESC;
+          `);
+          return jsonResponse(payouts.map((p) => ({
+            id: p.id,
+            coachId: p.coach_id,
+            coachName: p.coach_name,
+            coachEmail: p.coach_email,
+            amount: p.amount,
+            currency: p.currency,
+            status: p.status,
+            paymentMethod: p.payment_method,
+            referenceNumber: p.reference_number,
+            notes: p.notes,
+            processedAt: p.processed_at ? new Date(p.processed_at).toISOString() : null,
+            createdAt: p.created_at ? new Date(p.created_at).toISOString() : new Date().toISOString(),
+          })));
+        }
+
+        // GET /api/admin/certificate-templates & GET /api/certificate-templates
+        if ((url.pathname === "/api/admin/certificate-templates" || url.pathname === "/api/certificate-templates") && request.method === "GET") {
+          const templates = await queryNeon("SELECT * FROM certificate_templates ORDER BY is_default DESC, id ASC;");
+          return jsonResponse(templates.map((t) => ({
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            primaryColor: t.primary_color,
+            accentColor: t.accent_color,
+            logoUrl: t.logo_url,
+            backgroundUrl: t.background_url,
+            layout: t.layout,
+            customTitleText: t.custom_title_text,
+            signatureTitle: t.signature_title,
+            fontFamily: t.font_family,
+            isDefault: t.is_default,
+            isActive: t.is_active,
+          })));
+        }
+
+        // GET /api/admin/knowledge-base
+        if (url.pathname === "/api/admin/knowledge-base" && request.method === "GET") {
+          const kb = await queryNeon("SELECT * FROM knowledge_base ORDER BY \"order\" ASC, created_at DESC;");
+          return jsonResponse(kb);
+        }
+
+        // GET /api/admin/centers & GET /api/centers
+        if ((url.pathname === "/api/admin/centers" || url.pathname === "/api/centers") && request.method === "GET") {
+          const centers = await queryNeon("SELECT * FROM centers ORDER BY name ASC;");
+          return jsonResponse(centers);
         }
 
         // Default 404 for any other API endpoint (Prevents returning object that breaks frontend Array.map)
