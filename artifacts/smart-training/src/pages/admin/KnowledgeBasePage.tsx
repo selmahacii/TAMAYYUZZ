@@ -75,7 +75,11 @@ export default function AdminKnowledgeBasePage() {
     setLoading(true);
     try {
       const r = await fetch(`${BASE}/api/admin/knowledge-base`, { headers });
-      setArticles(await r.json());
+      const data = await r.json();
+      setArticles(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setArticles([]);
     } finally {
       setLoading(false);
     }
@@ -164,14 +168,15 @@ export default function AdminKnowledgeBasePage() {
     return labels[cat]?.[lang] ?? cat;
   };
 
+  const articleList = Array.isArray(articles) ? articles : [];
   const filteredArticles = searchQuery
-    ? articles.filter(
+    ? articleList.filter(
         (art) =>
           (art.title && art.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
           (art.content && art.content.toLowerCase().includes(searchQuery.toLowerCase())) ||
           (art.category && art.category.toLowerCase().includes(searchQuery.toLowerCase()))
       )
-    : articles;
+    : articleList;
 
   // Real-time micro statistics for the FAQ form
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;

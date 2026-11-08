@@ -403,8 +403,8 @@ export default {
         // 3.1 COACH COURSES & MANAGEMENT
         // ==========================================
 
-        // GET /api/courses/my (Coach's own courses)
-        if (url.pathname === "/api/courses/my" && request.method === "GET") {
+        // GET /api/courses/my or /api/coach/courses (Coach's own courses)
+        if ((url.pathname === "/api/courses/my" || url.pathname === "/api/coach/courses") && request.method === "GET") {
           const user = await getAuthUser(request);
           if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
 
@@ -2102,12 +2102,160 @@ export default {
           return jsonResponse(updated[0]);
         }
 
-        // GET /api/admin/announcements & GET /api/announcements
+        // GET /api/admin/price-requests
+        if (url.pathname === "/api/admin/price-requests" && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const prs = await queryNeon(`
+            SELECT pr.id, pr.coach_id as "coachId", COALESCE(u.name, 'Coach') as "coachName",
+                   pr.course_id as "courseId", COALESCE(c.title, 'Formation') as "courseTitle",
+                   pr.requested_price as "requestedPrice", pr.current_price as "currentPrice",
+                   pr.currency, pr.justification, pr.status, pr.admin_response as "adminResponse",
+                   pr.counter_price as "counterPrice", pr.created_at as "createdAt",
+                   pr.resolved_at as "resolvedAt"
+            FROM price_requests pr
+            LEFT JOIN users u ON pr.coach_id = u.id
+            LEFT JOIN courses c ON pr.course_id = c.id
+            ORDER BY pr.created_at DESC;
+          `);
+          return jsonResponse(prs.map((p) => ({
+            id: p.id,
+            coachId: p.coachId,
+            coachName: p.coachName,
+            courseId: p.courseId,
+            courseTitle: p.courseTitle,
+            requestedPrice: String(p.requestedPrice ?? "0"),
+            currentPrice: String(p.currentPrice ?? "0"),
+            currency: p.currency || "DZD",
+            justification: p.justification,
+            status: p.status,
+            adminResponse: p.adminResponse,
+            counterPrice: p.counterPrice ? String(p.counterPrice) : null,
+            createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+            resolvedAt: p.resolvedAt ? new Date(p.resolvedAt).toISOString() : null,
+          })));
+        }
+
+        // PATCH /api/admin/price-requests/:id
+        const adminPrMatch = url.pathname.match(/^\/api\/admin\/price-requests\/(\d+)$/);
+        if (adminPrMatch && request.method === "PATCH") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const prId = parseInt(adminPrMatch[1]);
+          const body = await request.json();
+          const { status, adminResponse, counterPrice } = body;
+
+          const pr = await queryNeon("SELECT * FROM price_requests WHERE id = $1 LIMIT 1;", [prId]);
+          if (pr.length === 0) return jsonResponse({ error: "Demande introuvable" }, 404);
+
+          if (status === "approved") {
+            await queryNeon("UPDATE courses SET price = $1, updated_at = NOW() WHERE id = $2;", [pr[0].requested_price, pr[0].course_id]);
+          }
+
+          const updated = await queryNeon(`
+            UPDATE price_requests
+            SET status = $1, admin_response = $2, counter_price = $3, resolved_at = NOW()
+            WHERE id = $4
+            RETURNING *;
+          `, [status, adminResponse || null, counterPrice || null, prId]);
+
+          return jsonResponse(updated[0]);
+        }
+
+        // GET /api/admin/announcements
         if (url.pathname === "/api/admin/announcements" && request.method === "GET") {
           const user = await getAuthUser(request);
           if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
-          const ads = await queryNeon("SELECT * FROM announcements ORDER BY created_at DESC;");
-          return jsonResponse(ads);
+          const ads = await queryNeon(`
+            SELECT a.id, a.title, a.content, a.type, a.image_url as "imageUrl",
+                   a.is_published as "isPublished", a.is_pinned as "isPinned", a.is_approved as "isApproved",
+                   a.author_id as "authorId", COALESCE(u.name, 'Admin') as "authorName",
+                   a.created_at as "createdAt", a.expires_at as "expiresAt"
+            FROM announcements a
+            LEFT JOIN users u ON a.author_id = u.id
+            ORDER BY a.created_at DESC;
+          `);
+          return jsonResponse(ads.map((a) => ({
+            id: a.id,
+            title: a.title,
+            content: a.content,
+            type: a.type,
+            imageUrl: a.imageUrl,
+            isPublished: !!a.isPublished,
+            isPinned: !!a.isPinned,
+            isApproved: !!a.isApproved,
+            authorId: a.authorId,
+            authorName: a.authorName,
+            createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
+            expiresAt: a.expiresAt ? new Date(a.expiresAt).toISOString() : null,
+          })));
+        }
+
+        // POST /api/announcements
+        if (url.pathname === "/api/announcements" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const body = await request.json();
+          const { title, content, imageUrl, type, isPinned, isPublished, isApproved, expiresAt } = body;
+          if (!title?.trim() || !content?.trim()) return jsonResponse({ error: "Titre et contenu requis" }, 400);
+
+          const inserted = await queryNeon(`
+            INSERT INTO announcements (author_id, title, content, image_url, type, is_pinned, is_published, is_approved, expires_at, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+            RETURNING *;
+          `, [
+            user.id,
+            title.trim(),
+            content.trim(),
+            imageUrl || null,
+            type || "announcement",
+            !!isPinned,
+            user.role === "admin" ? (isPublished !== false) : false,
+            user.role === "admin" ? (isApproved !== false) : false,
+            expiresAt ? new Date(expiresAt) : null,
+          ]);
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // PATCH /api/admin/announcements/:id/approve
+        const adApproveMatch = url.pathname.match(/^\/api\/admin\/announcements\/(\d+)\/approve$/);
+        if (adApproveMatch && request.method === "PATCH") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const id = parseInt(adApproveMatch[1]);
+          await queryNeon("UPDATE announcements SET is_approved = true, is_published = true, updated_at = NOW() WHERE id = $1;", [id]);
+          return jsonResponse({ success: true, message: "Annonce approuvée" });
+        }
+
+        // PATCH / PUT /api/admin/announcements/:id
+        const adUpdateMatch = url.pathname.match(/^\/api\/admin\/announcements\/(\d+)$/);
+        if (adUpdateMatch && (request.method === "PATCH" || request.method === "PUT")) {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const id = parseInt(adUpdateMatch[1]);
+          const body = await request.json();
+          const updated = await queryNeon(`
+            UPDATE announcements
+            SET title = COALESCE($1, title),
+                content = COALESCE($2, content),
+                type = COALESCE($3, type),
+                is_pinned = COALESCE($4, is_pinned),
+                is_published = COALESCE($5, is_published),
+                is_approved = COALESCE($6, is_approved),
+                updated_at = NOW()
+            WHERE id = $7
+            RETURNING *;
+          `, [body.title, body.content, body.type, body.isPinned, body.isPublished, body.isApproved, id]);
+          return jsonResponse(updated[0]);
+        }
+
+        // DELETE /api/admin/announcements/:id
+        if (adUpdateMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const id = parseInt(adUpdateMatch[1]);
+          await queryNeon("DELETE FROM announcements WHERE id = $1;", [id]);
+          return jsonResponse({ success: true, message: "Annonce supprimée" });
         }
 
         // GET /api/admin/payouts

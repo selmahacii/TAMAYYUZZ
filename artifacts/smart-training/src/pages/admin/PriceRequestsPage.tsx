@@ -35,7 +35,11 @@ export default function AdminPriceRequestsPage() {
     setLoading(true);
     try {
       const r = await fetch(`${BASE}/api/admin/price-requests`, { headers });
-      setRequests(await r.json());
+      const data = await r.json();
+      setRequests(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching price requests:", err);
+      setRequests([]);
     } finally { setLoading(false); }
   };
 
@@ -49,6 +53,8 @@ export default function AdminPriceRequestsPage() {
     else toast({ title: "Erreur", variant: "destructive" });
   };
 
+  const requestList = Array.isArray(requests) ? requests : [];
+
   return (
     <AdminLayout
       title={{ ar: "طلبات تعديل الأسعار", fr: "Demandes de modification de prix", en: "Price Change Requests" }[lang]}
@@ -56,14 +62,14 @@ export default function AdminPriceRequestsPage() {
     >
       {loading ? (
         <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="bg-muted shadow-2xs rounded-2xl h-24 animate-pulse" />)}</div>
-      ) : requests.length === 0 ? (
+      ) : requestList.length === 0 ? (
         <div className="text-center py-20">
           <CreditCard className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-muted-foreground">{{ ar: "لا توجد طلبات", fr: "Aucune demande", en: "No requests" }[lang]}</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {requests.map((pr) => {
+          {requestList.map((pr) => {
             const sc = statusConfig[pr.status] ?? statusConfig.pending;
             const isOpen = activeId === pr.id;
             return (

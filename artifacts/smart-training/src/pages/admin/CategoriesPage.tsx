@@ -135,13 +135,14 @@ export default function AdminCategoriesPage() {
 
   const getCourseCount = (catName: string) => {
     if (!reports?.categoryDistribution || !catName) return 0;
-    const match = reports.categoryDistribution.find(d => d && d.category && d.category.toLowerCase() === catName.toLowerCase());
+    const match = reports.categoryDistribution.find(d => d && d.category && d.category.toLowerCase().trim() === catName.toLowerCase().trim());
     return match ? match.count : 0;
   };
 
   const PALETTE = ["#171717", "#4b5563", "#059669", "#2563eb", "#dc2626", "#7c3aed", "#db2777", "#0d9488", "#ea580c", "#65a30d"];
 
   const isLoading = isLoadingCats || isLoadingStats;
+  const categoryList = Array.isArray(categories) ? categories : [];
 
   return (
     <AdminLayout
@@ -154,7 +155,7 @@ export default function AdminCategoriesPage() {
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-bold text-foreground">
               {{ ar: "الفئات المتاحة", fr: "Catégories existantes", en: "Existing categories" }[lang]}
-              <span className="ml-2 text-muted-foreground">({categories?.length ?? 0})</span>
+              <span className="ml-2 text-muted-foreground">({categoryList.length})</span>
             </h3>
             
             <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { setIsOpen(false); setName(""); setDescription(""); } }}>
@@ -210,29 +211,32 @@ export default function AdminCategoriesPage() {
             <div className="flex justify-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
-          ) : !categories || categories.length === 0 ? (
+          ) : categoryList.length === 0 ? (
             <div className="text-center py-12 bg-white border border-border rounded-xl">
               <Tag className="w-10 h-10 text-muted-foreground/35 mx-auto mb-2" />
               <p className="text-muted-foreground text-sm font-medium">{{ ar: "لا توجد فئات", fr: "Aucune catégorie", en: "No categories" }[lang]}</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {categories.map((cat, i) => {
-                const count = getCourseCount(cat.name);
-                const maxCount = reports?.categoryDistribution?.[0]?.count || 1;
+              {categoryList.map((rawCat: any, i: number) => {
+                const catName = typeof rawCat === "string" ? rawCat : (rawCat?.name ?? "");
+                const catDesc = typeof rawCat === "object" ? (rawCat?.description ?? null) : null;
+                const catObj: Category = typeof rawCat === "object" && rawCat?.id ? rawCat : { id: i + 1, name: catName, description: catDesc, createdAt: new Date().toISOString() };
+                const count = getCourseCount(catName);
+                const maxCount = Math.max(1, ...(reports?.categoryDistribution?.map(d => d.count) || [1]));
                 return (
-                  <div key={cat.id} className="flex items-center justify-between gap-4 p-4 bg-white border border-border shadow-2xs rounded-xl hover:shadow-xs transition-all">
+                  <div key={catObj.id || i} className="flex items-center justify-between gap-4 p-4 bg-white border border-border shadow-2xs rounded-xl hover:shadow-xs transition-all">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${PALETTE[i % PALETTE.length]}10` }}>
                         <Tag className="w-4.5 h-4.5" style={{ color: PALETTE[i % PALETTE.length] }} />
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-foreground">{cat.name}</div>
+                        <div className="text-sm font-bold text-foreground">{catName}</div>
                         <div className="text-xs text-muted-foreground">
                           {count} {{ ar: "دورة منشورة", fr: "formation(s) publiée(s)", en: "published course(s)" }[lang]}
                         </div>
-                        {cat.description && (
-                          <p className="text-[10px] text-muted-foreground/80 mt-1 max-w-sm">{cat.description}</p>
+                        {catDesc && (
+                          <p className="text-[10px] text-muted-foreground/80 mt-1 max-w-sm">{catDesc}</p>
                         )}
                       </div>
                     </div>
@@ -240,7 +244,7 @@ export default function AdminCategoriesPage() {
                       <div className="h-2 rounded-full w-20 bg-muted overflow-hidden hidden sm:block">
                         <div className="h-full rounded-full" style={{ width: `${Math.min(100, (count / maxCount) * 100)}%`, background: PALETTE[i % PALETTE.length] }} />
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => setPendingDelete(cat)} className="border-rose-100 text-rose-700 hover:bg-rose-50/50 p-1.5 h-8 w-8">
+                      <Button variant="outline" size="sm" onClick={() => setPendingDelete(catObj)} className="border-rose-100 text-rose-700 hover:bg-rose-50/50 p-1.5 h-8 w-8">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -267,12 +271,12 @@ export default function AdminCategoriesPage() {
           <div className="pt-4 border-t border-border space-y-2">
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">{{ ar: "إجمالي الفئات", fr: "Total catégories", en: "Total categories" }[lang]}</span>
-              <span className="text-foreground font-bold">{categories?.length ?? 0}</span>
+              <span className="text-foreground font-bold">{categoryList.length}</span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">{{ ar: "إجمالي الدورات", fr: "Total formations", en: "Total courses" }[lang]}</span>
               <span className="text-foreground font-bold">
-                {reports?.categoryDistribution?.reduce((s, c) => s + c.count, 0) ?? 0}
+                {reports?.categoryDistribution?.reduce((s, c) => s + (c?.count || 0), 0) ?? 0}
               </span>
             </div>
           </div>

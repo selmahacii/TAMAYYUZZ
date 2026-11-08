@@ -73,7 +73,11 @@ export default function AdminCertTemplatesPage() {
     setLoading(true);
     try {
       const r = await fetch(`${BASE}/api/admin/certificate-templates`, { headers });
-      setTemplates(await r.json());
+      const data = await r.json();
+      setTemplates(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setTemplates([]);
     } finally {
       setLoading(false);
     }
@@ -196,7 +200,7 @@ export default function AdminCertTemplatesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {templates.map((t) => (
+          {(Array.isArray(templates) ? templates : []).map((t) => (
             <div
               key={t.id}
               className="bg-white border border-border rounded-xl overflow-hidden shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"

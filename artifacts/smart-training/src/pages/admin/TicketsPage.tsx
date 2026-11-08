@@ -45,7 +45,11 @@ export default function AdminTicketsPage() {
     setLoading(true);
     try {
       const r = await fetch(`${BASE}/api/admin/tickets`, { headers });
-      setTickets(await r.json());
+      const data = await r.json();
+      setTickets(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setTickets([]);
     } finally { setLoading(false); }
   };
 
@@ -69,13 +73,15 @@ export default function AdminTicketsPage() {
 
   const toggleExpand = (id: number) => setExpandedId((cur) => (cur === id ? null : id));
 
-  const filtered = useMemo(() => tickets.filter((tk) => {
+  const ticketList = Array.isArray(tickets) ? tickets : [];
+
+  const filtered = useMemo(() => ticketList.filter((tk) => {
     const matchSearch = !search || (tk.subject && tk.subject.toLowerCase().includes(search.toLowerCase())) || (tk.userName && tk.userName.toLowerCase().includes(search.toLowerCase()));
     const matchStatus = statusFilter === "all" || tk.status === statusFilter;
     return matchSearch && matchStatus;
-  }), [tickets, search, statusFilter]);
+  }), [ticketList, search, statusFilter]);
 
-  const counts = { all: tickets.length, open: tickets.filter(t => t.status === "open").length, in_progress: tickets.filter(t => t.status === "in_progress").length, resolved: tickets.filter(t => t.status === "resolved").length };
+  const counts = { all: ticketList.length, open: ticketList.filter(t => t.status === "open").length, in_progress: ticketList.filter(t => t.status === "in_progress").length, resolved: ticketList.filter(t => t.status === "resolved").length };
 
   const formatDateTime = (iso: string) =>
     new Date(iso).toLocaleString(lang === "ar" ? "ar-DZ" : "fr-DZ", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });

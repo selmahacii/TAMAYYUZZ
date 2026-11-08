@@ -98,7 +98,11 @@ export default function AdminAnnouncementsPage() {
     setLoading(true);
     try {
       const r = await fetch(`${BASE}/api/admin/announcements`, { headers });
-      setItems(await r.json());
+      const data = await r.json();
+      setItems(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -220,7 +224,7 @@ export default function AdminAnnouncementsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((item) => {
+          {(Array.isArray(items) ? items : []).map((item) => {
             const tc = typeConfig[item.type] ?? typeConfig.announcement;
             return (
               <div
