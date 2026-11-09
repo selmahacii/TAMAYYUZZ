@@ -353,6 +353,8 @@ export default {
               learningObjectives: c.learning_objectives ?? [],
               requirements: c.requirements ?? [],
               targetAudience: c.target_audience ?? [],
+              faq: c.faq ?? [],
+              promoVideoUrl: c.promo_video_url ?? null,
               createdAt: c.created_at ? new Date(c.created_at).toISOString() : new Date().toISOString(),
               hasFinalExam: !!c.final_exam,
               isEnrolled: !!c.is_enrolled,
@@ -441,6 +443,8 @@ export default {
               learningObjectives: c.learning_objectives ?? [],
               requirements: c.requirements ?? [],
               targetAudience: c.target_audience ?? [],
+              faq: c.faq ?? [],
+              promoVideoUrl: c.promo_video_url ?? null,
               createdAt: c.created_at ? new Date(c.created_at).toISOString() : new Date().toISOString(),
               hasFinalExam: !!c.final_exam,
             }))
@@ -461,7 +465,7 @@ export default {
           const {
             title, subtitle, description, category, level, price, isFree, imageUrl,
             durationHours, tags, learningObjectives, requirements, targetAudience,
-            certificateTemplateId, finalExam
+            certificateTemplateId, finalExam, faq, promoVideoUrl, language
           } = body;
 
           if (!title?.trim() || !description?.trim() || !category) {
@@ -472,11 +476,13 @@ export default {
             INSERT INTO courses (
               title, subtitle, description, category, level, price, is_free, currency,
               image_url, duration_hours, tags, learning_objectives, requirements, target_audience,
-              coach_id, is_published, certificate_template_id, final_exam, created_at, updated_at
+              coach_id, is_published, certificate_template_id, final_exam, language,
+              faq, promo_video_url, created_at, updated_at
             ) VALUES (
               $1, $2, $3, $4, $5, $6, $7, 'DZD',
               $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb,
-              $14, true, $15, $16::jsonb, NOW(), NOW()
+              $14, true, $15, $16::jsonb, $17,
+              $18::jsonb, $19, NOW(), NOW()
             ) RETURNING *;
           `, [
             title.trim(), subtitle?.trim() || null, description.trim(), category,
@@ -484,7 +490,9 @@ export default {
             imageUrl || null, durationHours || null,
             JSON.stringify(tags || []), JSON.stringify(learningObjectives || []),
             JSON.stringify(requirements || []), JSON.stringify(targetAudience || []),
-            user.id, certificateTemplateId || null, finalExam ? JSON.stringify(finalExam) : null
+            user.id, certificateTemplateId || null, finalExam ? JSON.stringify(finalExam) : null,
+            language || "fr",
+            JSON.stringify(faq || []), promoVideoUrl || null
           ]);
 
           const c = inserted[0];
@@ -504,6 +512,9 @@ export default {
             isFree: c.is_free,
             price: c.price,
             currency: c.currency,
+            language: c.language,
+            faq: c.faq ?? [],
+            promoVideoUrl: c.promo_video_url ?? null,
             createdAt: c.created_at ? new Date(c.created_at).toISOString() : new Date().toISOString(),
           }, 201);
         }
@@ -531,18 +542,42 @@ export default {
                 image_url = COALESCE($8, image_url),
                 duration_hours = COALESCE($9, duration_hours),
                 certificate_template_id = COALESCE($10, certificate_template_id),
-                final_exam = COALESCE($11::jsonb, final_exam),
+                final_exam = CASE WHEN $11::boolean THEN $12::jsonb ELSE final_exam END,
+                tags = CASE WHEN $13::boolean THEN $14::jsonb ELSE tags END,
+                learning_objectives = CASE WHEN $15::boolean THEN $16::jsonb ELSE learning_objectives END,
+                requirements = CASE WHEN $17::boolean THEN $18::jsonb ELSE requirements END,
+                target_audience = CASE WHEN $19::boolean THEN $20::jsonb ELSE target_audience END,
+                language = COALESCE($21, language),
+                faq = CASE WHEN $22::boolean THEN $23::jsonb ELSE faq END,
+                promo_video_url = CASE WHEN $24::boolean THEN $25 ELSE promo_video_url END,
                 updated_at = NOW()
-            WHERE id = $12 RETURNING *;
+            WHERE id = $26 RETURNING *;
           `, [
             body.title?.trim() || null, body.subtitle?.trim() || null, body.description?.trim() || null,
             body.category || null, body.level || null, body.price ? String(body.price) : null,
             body.isFree !== undefined ? body.isFree : null, body.imageUrl || null,
             body.durationHours || null, body.certificateTemplateId || null,
-            body.finalExam ? JSON.stringify(body.finalExam) : null, courseId
+            body.finalExam !== undefined, body.finalExam ? JSON.stringify(body.finalExam) : null,
+            body.tags !== undefined, body.tags ? JSON.stringify(body.tags) : null,
+            body.learningObjectives !== undefined, body.learningObjectives ? JSON.stringify(body.learningObjectives) : null,
+            body.requirements !== undefined, body.requirements ? JSON.stringify(body.requirements) : null,
+            body.targetAudience !== undefined, body.targetAudience ? JSON.stringify(body.targetAudience) : null,
+            body.language || null,
+            body.faq !== undefined, body.faq ? JSON.stringify(body.faq) : null,
+            body.promoVideoUrl !== undefined, body.promoVideoUrl || null,
+            courseId
           ]);
 
-          return jsonResponse(updated[0]);
+          const c = updated[0];
+          return jsonResponse({
+            ...c,
+            faq: c.faq ?? [],
+            promoVideoUrl: c.promo_video_url ?? null,
+            learningObjectives: c.learning_objectives ?? [],
+            requirements: c.requirements ?? [],
+            targetAudience: c.target_audience ?? [],
+            tags: c.tags ?? []
+          });
         }
 
         // DELETE /api/courses/:id
@@ -724,6 +759,10 @@ export default {
             learningObjectives: c.learning_objectives ?? [],
             requirements: c.requirements ?? [],
             targetAudience: c.target_audience ?? [],
+            faq: c.faq ?? [],
+            promoVideoUrl: c.promo_video_url ?? null,
+            certificateTemplateId: c.certificate_template_id ?? null,
+            finalExam: c.final_exam ?? null,
             createdAt: c.created_at ? new Date(c.created_at).toISOString() : new Date().toISOString(),
             hasFinalExam: !!c.final_exam,
             isEnrolled: !!c.is_enrolled,
@@ -752,20 +791,247 @@ export default {
           });
         }
 
-        // GET /api/courses/:id/chapters
-        const chaptersMatch = url.pathname.match(/^\/api\/courses\/(\d+)\/chapters$/);
-        if (chaptersMatch && request.method === "GET") {
-          const courseId = parseInt(chaptersMatch[1]);
-          const chapters = await queryNeon(`SELECT * FROM chapters WHERE course_id = $1 ORDER BY "order";`, [courseId]);
-          return jsonResponse(chapters);
+        // Chapters & Lessons Full Management
+        const chaptersBaseMatch = url.pathname.match(/^\/api\/courses\/(\d+)\/chapters$/);
+        const chapterItemMatch = url.pathname.match(/^\/api\/courses\/(\d+)\/chapters\/(\d+)$/);
+        const lessonsBaseMatch = url.pathname.match(/^\/api\/courses\/(\d+)\/lessons$/);
+        const lessonItemMatch = url.pathname.match(/^\/api\/courses\/(\d+)\/lessons\/(\d+)$/);
+
+        // GET /api/courses/:id/chapters (with nested lessons and unassigned group)
+        if (chaptersBaseMatch && request.method === "GET") {
+          const courseId = parseInt(chaptersBaseMatch[1]);
+          const chapters = await queryNeon(`SELECT * FROM chapters WHERE course_id = $1 ORDER BY "order" ASC, id ASC;`, [courseId]);
+          const lessons = await queryNeon(`SELECT * FROM lessons WHERE course_id = $1 ORDER BY "order" ASC, id ASC;`, [courseId]);
+
+          const formatted = chapters.map((ch) => ({
+            id: ch.id,
+            courseId: ch.course_id,
+            title: ch.title,
+            description: ch.description ?? null,
+            order: ch.order,
+            createdAt: ch.created_at ? new Date(ch.created_at).toISOString() : new Date().toISOString(),
+            lessons: lessons.filter((l) => l.chapter_id === ch.id).map((l) => ({
+              id: l.id,
+              courseId: l.course_id,
+              chapterId: l.chapter_id,
+              title: l.title,
+              description: l.description ?? null,
+              order: l.order,
+              durationMinutes: l.duration_minutes ?? null,
+              type: l.type || "text",
+              videoUrl: l.video_url ?? null,
+              pdfUrl: l.pdf_url ?? null,
+              quizData: l.quiz_data ?? null,
+            })),
+          }));
+
+          const unassigned = lessons.filter((l) => !l.chapter_id);
+          if (unassigned.length > 0) {
+            formatted.push({
+              id: 0,
+              courseId,
+              title: "Leçons non assignées",
+              description: null,
+              order: 9999,
+              createdAt: new Date().toISOString(),
+              lessons: unassigned.map((l) => ({
+                id: l.id,
+                courseId: l.course_id,
+                chapterId: null,
+                title: l.title,
+                description: l.description ?? null,
+                order: l.order,
+                durationMinutes: l.duration_minutes ?? null,
+                type: l.type || "text",
+                videoUrl: l.video_url ?? null,
+                pdfUrl: l.pdf_url ?? null,
+                quizData: l.quiz_data ?? null,
+              })),
+            });
+          }
+
+          return jsonResponse(formatted);
+        }
+
+        // POST /api/courses/:id/chapters
+        if (chaptersBaseMatch && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const courseId = parseInt(chaptersBaseMatch[1]);
+          const body = await request.json();
+          const inserted = await queryNeon(
+            `INSERT INTO chapters (course_id, title, description, "order", created_at)
+             VALUES ($1, $2, $3, $4, NOW()) RETURNING *;`,
+            [courseId, body.title?.trim() || "Nouveau chapitre", body.description?.trim() || null, body.order || 1]
+          );
+          const ch = inserted[0];
+          return jsonResponse({
+            id: ch.id,
+            courseId: ch.course_id,
+            title: ch.title,
+            description: ch.description,
+            order: ch.order,
+            createdAt: new Date(ch.created_at).toISOString(),
+            lessons: [],
+          }, 201);
+        }
+
+        // PATCH /api/courses/:id/chapters/:chapterId
+        if (chapterItemMatch && (request.method === "PATCH" || request.method === "PUT")) {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const courseId = parseInt(chapterItemMatch[1]);
+          const chapterId = parseInt(chapterItemMatch[2]);
+          const body = await request.json();
+          const updated = await queryNeon(
+            `UPDATE chapters
+             SET title = COALESCE($1, title),
+                 description = COALESCE($2, description),
+                 "order" = COALESCE($3, "order")
+             WHERE id = $4 AND course_id = $5 RETURNING *;`,
+            [body.title?.trim() || null, body.description !== undefined ? body.description : null, body.order || null, chapterId, courseId]
+          );
+          if (updated.length === 0) return jsonResponse({ error: "Chapitre introuvable" }, 404);
+          const ch = updated[0];
+          return jsonResponse({
+            id: ch.id,
+            courseId: ch.course_id,
+            title: ch.title,
+            description: ch.description,
+            order: ch.order,
+            createdAt: new Date(ch.created_at).toISOString(),
+          });
+        }
+
+        // DELETE /api/courses/:id/chapters/:chapterId
+        if (chapterItemMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const courseId = parseInt(chapterItemMatch[1]);
+          const chapterId = parseInt(chapterItemMatch[2]);
+          await queryNeon(`UPDATE lessons SET chapter_id = NULL WHERE chapter_id = $1 AND course_id = $2;`, [chapterId, courseId]);
+          await queryNeon(`DELETE FROM chapters WHERE id = $1 AND course_id = $2;`, [chapterId, courseId]);
+          return jsonResponse({ success: true, message: "Chapitre supprimé avec succès." });
         }
 
         // GET /api/courses/:id/lessons
-        const lessonsMatch = url.pathname.match(/^\/api\/courses\/(\d+)\/lessons$/);
-        if (lessonsMatch && request.method === "GET") {
-          const courseId = parseInt(lessonsMatch[1]);
-          const lessons = await queryNeon(`SELECT * FROM lessons WHERE course_id = $1 ORDER BY "order";`, [courseId]);
-          return jsonResponse(lessons);
+        if (lessonsBaseMatch && request.method === "GET") {
+          const courseId = parseInt(lessonsBaseMatch[1]);
+          const lessons = await queryNeon(`SELECT * FROM lessons WHERE course_id = $1 ORDER BY "order" ASC, id ASC;`, [courseId]);
+          return jsonResponse(lessons.map((l) => ({
+            id: l.id,
+            courseId: l.course_id,
+            chapterId: l.chapter_id ?? null,
+            title: l.title,
+            description: l.description ?? null,
+            order: l.order,
+            durationMinutes: l.duration_minutes ?? null,
+            type: l.type || "text",
+            videoUrl: l.video_url ?? null,
+            pdfUrl: l.pdf_url ?? null,
+            quizData: l.quiz_data ?? null,
+          })));
+        }
+
+        // POST /api/courses/:id/lessons
+        if (lessonsBaseMatch && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const courseId = parseInt(lessonsBaseMatch[1]);
+          const body = await request.json();
+          const inserted = await queryNeon(`
+            INSERT INTO lessons (
+              course_id, chapter_id, title, description, "order", duration_minutes, type, video_url, pdf_url, quiz_data, created_at
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, NOW()
+            ) RETURNING *;
+          `, [
+            courseId,
+            body.chapterId || null,
+            body.title?.trim() || "Nouvelle leçon",
+            body.description?.trim() || null,
+            body.order || 1,
+            body.durationMinutes || null,
+            body.type || "text",
+            body.videoUrl || null,
+            body.pdfUrl || null,
+            body.quizData ? JSON.stringify(body.quizData) : null
+          ]);
+          const l = inserted[0];
+          return jsonResponse({
+            id: l.id,
+            courseId: l.course_id,
+            chapterId: l.chapter_id,
+            title: l.title,
+            description: l.description,
+            order: l.order,
+            durationMinutes: l.duration_minutes,
+            type: l.type,
+            videoUrl: l.video_url,
+            pdfUrl: l.pdf_url,
+            quizData: l.quiz_data,
+          }, 201);
+        }
+
+        // PATCH /api/courses/:id/lessons/:lessonId
+        if (lessonItemMatch && (request.method === "PATCH" || request.method === "PUT")) {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const courseId = parseInt(lessonItemMatch[1]);
+          const lessonId = parseInt(lessonItemMatch[2]);
+          const body = await request.json();
+          const updated = await queryNeon(`
+            UPDATE lessons
+            SET title = COALESCE($1, title),
+                description = COALESCE($2, description),
+                chapter_id = CASE WHEN $3::boolean THEN $4::int ELSE chapter_id END,
+                "order" = COALESCE($5, "order"),
+                duration_minutes = COALESCE($6, duration_minutes),
+                type = COALESCE($7, type),
+                video_url = COALESCE($8, video_url),
+                pdf_url = COALESCE($9, pdf_url),
+                quiz_data = CASE WHEN $10::boolean THEN $11::jsonb ELSE quiz_data END
+            WHERE id = $12 AND course_id = $13 RETURNING *;
+          `, [
+            body.title?.trim() || null,
+            body.description !== undefined ? body.description : null,
+            body.chapterId !== undefined,
+            body.chapterId ?? null,
+            body.order || null,
+            body.durationMinutes !== undefined ? body.durationMinutes : null,
+            body.type || null,
+            body.videoUrl !== undefined ? body.videoUrl : null,
+            body.pdfUrl !== undefined ? body.pdfUrl : null,
+            body.quizData !== undefined,
+            body.quizData ? JSON.stringify(body.quizData) : null,
+            lessonId,
+            courseId
+          ]);
+          if (updated.length === 0) return jsonResponse({ error: "Leçon introuvable" }, 404);
+          const l = updated[0];
+          return jsonResponse({
+            id: l.id,
+            courseId: l.course_id,
+            chapterId: l.chapter_id,
+            title: l.title,
+            description: l.description,
+            order: l.order,
+            durationMinutes: l.duration_minutes,
+            type: l.type,
+            videoUrl: l.video_url,
+            pdfUrl: l.pdf_url,
+            quizData: l.quiz_data,
+          });
+        }
+
+        // DELETE /api/courses/:id/lessons/:lessonId
+        if (lessonItemMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user) return jsonResponse({ error: "Non autorisé" }, 401);
+          const courseId = parseInt(lessonItemMatch[1]);
+          const lessonId = parseInt(lessonItemMatch[2]);
+          await queryNeon(`DELETE FROM lessons WHERE id = $1 AND course_id = $2;`, [lessonId, courseId]);
+          return jsonResponse({ success: true, message: "Leçon supprimée avec succès." });
         }
 
         // GET /api/courses/:id/reviews

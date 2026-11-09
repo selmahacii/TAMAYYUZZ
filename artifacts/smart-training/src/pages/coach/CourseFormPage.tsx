@@ -14,7 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatBytes } from "@/lib/coachContent";
-import { Tag, Plus, X, Upload, Link as LinkIcon, Loader2, CheckCircle2, FileEdit, ListChecks, Hash, Award, GraduationCap } from "lucide-react";
+import { Tag, Plus, X, Upload, Link as LinkIcon, Loader2, CheckCircle2, FileEdit, ListChecks, Hash, Award, GraduationCap, Video, HelpCircle, MessageSquareQuote, Check } from "lucide-react";
+
+interface CourseFaqItem { question: string; answer: string; }
+
 
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
@@ -76,10 +79,11 @@ export default function CourseFormPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const [createdId, setCreatedId] = useState<number | null>(null);
   const activeCourseId = courseId ?? createdId;
-  const [tab, setTab] = useState<"details" | "content" | "certification">("details");
+  const [tab, setTab] = useState<"details" | "content" | "faq" | "certification">("details");
 
   const { data: existingCourse } = useGetCourse(activeCourseId ?? 0, {
     query: { enabled: !!activeCourseId, queryKey: getGetCourseQueryKey(activeCourseId ?? 0) },
@@ -112,6 +116,9 @@ export default function CourseFormPage() {
   const [durationHours, setDurationHours] = useState<number | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [imageMode, setImageMode] = useState<"link" | "upload">("link");
+  const [promoVideoUrl, setPromoVideoUrl] = useState("");
+  const [promoVideoMode, setPromoVideoMode] = useState<"link" | "upload">("link");
+  const [faqList, setFaqList] = useState<CourseFaqItem[]>([]);
   const [isFree, setIsFree] = useState(true);
   const [price, setPrice] = useState("0");
   const [currency, setCurrency] = useState("DZD");
@@ -135,6 +142,10 @@ export default function CourseFormPage() {
       setLevel(existingCourse.level as any);
       setDurationHours(existingCourse.durationHours ?? null);
       setImageUrl(existingCourse.imageUrl ?? "");
+      setPromoVideoUrl((existingCourse as any).promoVideoUrl ?? "");
+      if (Array.isArray((existingCourse as any).faq)) {
+        setFaqList((existingCourse as any).faq);
+      }
       setIsFree(existingCourse.isFree ?? true);
       setPrice(existingCourse.price ?? "0");
       setCurrency(existingCourse.currency ?? "DZD");
@@ -173,6 +184,21 @@ export default function CourseFormPage() {
     );
   };
 
+  const handleVideoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadMutation.mutate(
+      { data: { file } },
+      {
+        onSuccess: (res) => {
+          setPromoVideoUrl(res.url);
+          toast({ title: { ar: "تم رفع الفيديو بنجاح", fr: "Vidéo promotionnelle téléversée avec succès", en: "Promo video uploaded successfully" }[lang] });
+        },
+        onError: () => toast({ title: { ar: "فشل رفع الفيديو", fr: "Échec du téléversement de la vidéo", en: "Video upload failed" }[lang], variant: "destructive" }),
+      }
+    );
+  };
+
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const buildPayload = () => ({
@@ -181,6 +207,8 @@ export default function CourseFormPage() {
     description: overview.trim(),
     category: category === "__custom__" ? customCategory.trim() : category,
     imageUrl: imageUrl || null,
+    promoVideoUrl: promoVideoUrl?.trim() || null,
+    faq: faqList.filter((f) => f.question?.trim() && f.answer?.trim()),
     durationHours,
     level,
     isFree,
@@ -309,6 +337,56 @@ export default function CourseFormPage() {
     );
   };
 
+  const handleSaveFaq = () => {
+    if (!activeCourseId) return;
+    const cleanFaq = faqList.filter((f) => f.question?.trim() && f.answer?.trim());
+    updateMutation.mutate(
+      {
+        id: activeCourseId,
+        data: {
+          faq: cleanFaq,
+        } as any,
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetCourseQueryKey(activeCourseId) });
+          toast({ title: { ar: "تم حفظ الأسئلة الشائعة بنجاح", fr: "FAQ enregistrée avec succès", en: "FAQ saved successfully" }[lang] });
+        },
+        onError: () => toast({ title: "Erreur lors de l'enregistrement de la FAQ", variant: "destructive" }),
+      }
+    );
+  };
+
+  const addFaqItem = () => {
+    setFaqList((prev) => [...prev, { question: "", answer: "" }]);
+  };
+
+  const removeFaqItem = (idx: number) => {
+    setFaqList((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateFaqItem = (idx: number, field: "question" | "answer", val: string) => {
+    setFaqList((prev) => prev.map((item, i) => (i === idx ? { ...item, [field]: val } : item)));
+  };
+
+  const loadPresetFaq = () => {
+    const presets: CourseFaqItem[] = [
+      {
+        question: { ar: "كم مدة صلاحية الوصول إلى هذه الدورة؟", fr: "Combien de temps ai-je accès à cette formation ?", en: "How long do I have access to this course?" }[lang],
+        answer: { ar: "بمجرد التسجيل، يتاح لكِ الوصول الدائم وغير المحدود إلى جميع الدروس والموارد والمحتويات المحدثة.", fr: "Une fois inscrite, vous bénéficiez d'un accès illimité et permanent à toutes les leçons, documents et futures mises à jour.", en: "Once enrolled, you get lifetime unlimited access to all lessons and updates." }[lang]
+      },
+      {
+        question: { ar: "هل سأحصل على شهادة إتمام رسمية؟", fr: "Vais-je recevoir un certificat officiel à la fin ?", en: "Will I receive an official certificate?" }[lang],
+        answer: { ar: "نعم، فور إتمامكِ لكافة الدروس واجتياز التقييم النهائي، يتم إصدار شهادة تخرج معتمدة برقم تسلسلي موثق.", fr: "Oui, après avoir complété tous les modules et réussi l'examen final, un certificat officiel avec code d'authentification unique est délivré.", en: "Yes, upon completing all modules and passing the final exam, a verified certificate is automatically issued." }[lang]
+      },
+      {
+        question: { ar: "هل أحتاج إلى خبرة مسبقة للبدء؟", fr: "Faut-il des connaissances préalables pour commencer ?", en: "Do I need prior experience?" }[lang],
+        answer: { ar: "تم تصميم الدورة بمنهجية تدريجية تبدأ من الأساسيات حتى المستوى المتقدم مع تطبيقات عملية مباشرة.", fr: "Cette formation est conçue avec une progression pédagogique pas à pas, accessible dès les bases avec des applications pratiques réelles.", en: "This course is structured step-by-step from fundamentals to advanced practice." }[lang]
+      }
+    ];
+    setFaqList((prev) => [...prev, ...presets]);
+  };
+
   const previewTemplate = templates?.find((t) => t.id === certificateTemplateId);
 
   return (
@@ -330,6 +408,18 @@ export default function CourseFormPage() {
           title={!activeCourseId ? { ar: "احفظي التفاصيل أولاً", fr: "Enregistrez d'abord les détails", en: "Save details first" }[lang] : undefined}>
           <ListChecks className="w-3.5 h-3.5" />
           {{ ar: "الفصول والدروس", fr: "Chapitres & leçons", en: "Chapters & Lessons" }[lang]}
+        </button>
+        <button type="button" onClick={() => activeCourseId && setTab("faq")} disabled={!activeCourseId}
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${tab === "faq" ? "text-white" : "text-foreground/60 bg-muted hover:text-foreground"}`}
+          style={tab === "faq" ? { background: "hsl(258,75%,55%)" } : undefined}
+          title={!activeCourseId ? { ar: "احفظي التفاصيل أولاً", fr: "Enregistrez d'abord les détails", en: "Save details first" }[lang] : undefined}>
+          <HelpCircle className="w-3.5 h-3.5" />
+          {{ ar: "الأسئلة الشائعة (FAQ)", fr: "FAQ & Questions", en: "FAQ & Questions" }[lang]}
+          {faqList.length > 0 && (
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${tab === "faq" ? "bg-white/30 text-white" : "bg-black/10 text-foreground"}`}>
+              {faqList.length}
+            </span>
+          )}
         </button>
         <button type="button" onClick={() => activeCourseId && setTab("certification")} disabled={!activeCourseId}
           className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed ${tab === "certification" ? "text-white" : "text-foreground/60 bg-muted hover:text-foreground"}`}
@@ -447,6 +537,79 @@ export default function CourseFormPage() {
               </div>
             </div>
 
+            {/* Promotional Video / Teaser */}
+            <div className="p-4 rounded-xl bg-[#fafafa] border border-border">
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-bold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Video className="w-3.5 h-3.5 text-neutral-800" />
+                  {{ ar: "فيديو العرض الترويجي (Teaser)", fr: "Vidéo promotionnelle / Teaser de présentation", en: "Promotional Teaser Video" }[lang]}
+                </label>
+                <div className="flex rounded-lg p-0.5 bg-muted">
+                  <button
+                    type="button"
+                    onClick={() => setPromoVideoMode("link")}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold transition-all ${promoVideoMode === "link" ? "bg-white text-black shadow-sm" : "text-muted-foreground"}`}
+                  >
+                    <LinkIcon className="w-3 h-3" />{{ ar: "رابط", fr: "Lien URL", en: "URL Link" }[lang]}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPromoVideoMode("upload")}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[10px] font-bold transition-all ${promoVideoMode === "upload" ? "bg-white text-black shadow-sm" : "text-muted-foreground"}`}
+                  >
+                    <Upload className="w-3 h-3" />{{ ar: "رفع ملف", fr: "Téléverser", en: "Upload" }[lang]}
+                  </button>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mb-3">
+                {{ ar: "فيديو قصير يعرف بالدورة ويعرض محتواها للمتدربات قبل الشراء.", fr: "Vidéo d'introduction présentant la formation pour inciter les étudiantes à s'inscrire.", en: "Short preview video showcasing the course before enrollment." }[lang]}
+              </p>
+
+              {promoVideoMode === "link" ? (
+                <Input
+                  value={promoVideoUrl.startsWith("/api/uploads/") ? "" : promoVideoUrl}
+                  onChange={(e) => setPromoVideoUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=... ou https://vimeo.com/... ou lien MP4"
+                  className="bg-white"
+                />
+              ) : (
+                <>
+                  <input ref={videoInputRef} type="file" accept="video/mp4,video/webm" className="hidden" onChange={handleVideoFile} />
+                  <button
+                    type="button"
+                    onClick={() => videoInputRef.current?.click()}
+                    disabled={uploadMutation.isPending}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-lg border-2 border-dashed border-border hover:border-foreground/30 text-muted-foreground hover:text-foreground text-xs font-bold bg-white"
+                  >
+                    {uploadMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin text-neutral-800" /> : <Upload className="w-4 h-4" />}
+                    {{ ar: "اختيار ملف فيديو (MP4 / WebM)", fr: "Sélectionner un fichier vidéo (MP4 / WebM)", en: "Choose video file (MP4 / WebM)" }[lang]}
+                  </button>
+                </>
+              )}
+
+              {promoVideoUrl && (
+                <div className="mt-3 rounded-lg overflow-hidden border border-border bg-black aspect-video max-h-48 flex items-center justify-center">
+                  {promoVideoUrl.includes("youtube.com") || promoVideoUrl.includes("youtu.be") ? (
+                    <iframe
+                      src={promoVideoUrl.replace("watch?v=", "embed/").replace("youtu.be/", "www.youtube.com/embed/")}
+                      className="w-full h-full"
+                      title="Promo video"
+                      allowFullScreen
+                    />
+                  ) : promoVideoUrl.includes("vimeo.com") ? (
+                    <iframe
+                      src={promoVideoUrl.replace("vimeo.com/", "player.vimeo.com/video/")}
+                      className="w-full h-full"
+                      title="Promo video"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video src={promoVideoUrl} controls className="w-full h-full object-contain" />
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Pricing */}
             <div className="rounded-xl p-5 bg-[#fafafa] border border-border">
               <div className="flex items-center gap-2 mb-4">
@@ -496,6 +659,116 @@ export default function CourseFormPage() {
         </div>
       ) : tab === "content" ? (
         activeCourseId && <CourseContentManager courseId={activeCourseId} />
+      ) : tab === "faq" ? (
+        activeCourseId && (
+          <div className="bg-white border border-border shadow-sm rounded-xl p-6 md:p-8 max-w-3xl space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border">
+              <div>
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <HelpCircle className="w-4 h-4 text-neutral-800" />
+                  {{ ar: "الأسئلة الشائعة حول الدورة", fr: "Foire aux questions (FAQ)", en: "Course FAQ" }[lang]}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {{ ar: "أجيبي على التساؤلات المتكررة للمتدربات لمساعدتهن على اتخاذ قرار التسجيل بثقة.", fr: "Répondez aux interrogations fréquentes de vos apprenantes pour lever leurs doutes.", en: "Answer common questions to help students enroll with confidence." }[lang]}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {faqList.length === 0 && (
+                  <Button type="button" variant="outline" size="sm" onClick={loadPresetFaq} className="text-xs">
+                    {{ ar: "إدراج نماذج جاهزة", fr: "Insérer modèles", en: "Insert presets" }[lang]}
+                  </Button>
+                )}
+                <Button type="button" size="sm" onClick={addFaqItem} className="text-xs bg-black text-white hover:bg-neutral-800">
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  {{ ar: "إضافة سؤال", fr: "Ajouter question", en: "Add question" }[lang]}
+                </Button>
+              </div>
+            </div>
+
+            {faqList.length === 0 ? (
+              <div className="text-center py-12 px-4 border-2 border-dashed border-border rounded-xl">
+                <HelpCircle className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
+                <p className="text-sm font-bold text-foreground mb-1">
+                  {{ ar: "لا توجد أسئلة شائعة بعد", fr: "Aucune question fréquente", en: "No FAQ items yet" }[lang]}
+                </p>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto mb-4">
+                  {{ ar: "الأسئلة الشائعة تزيد من نسبة التسجيل عبر توضيح طريقة الدراسة وشروط الشهادة والمتابعة.", fr: "La FAQ rassure vos futurs étudiants sur les modalités de la formation et le certificat.", en: "FAQs reassure prospective students and increase course enrollment." }[lang]}
+                </p>
+                <div className="flex justify-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={loadPresetFaq}>
+                    {{ ar: "إدراج أسئلة نموذجية", fr: "Charger questions suggérées", en: "Load suggested questions" }[lang]}
+                  </Button>
+                  <Button type="button" size="sm" onClick={addFaqItem} className="bg-black text-white hover:bg-neutral-800">
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    {{ ar: "سؤال مخصص", fr: "Nouvelle question", en: "New question" }[lang]}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {faqList.map((item, idx) => (
+                  <div key={idx} className="p-4 rounded-xl border border-border bg-[#fafafa] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                        {{ ar: `السؤال ${idx + 1}`, fr: `Question ${idx + 1}`, en: `Question ${idx + 1}` }[lang]}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeFaqItem(idx)}
+                        className="text-muted-foreground hover:text-rose-600 p-1 rounded-md transition-colors"
+                        title={{ ar: "حذف السؤال", fr: "Supprimer la question", en: "Delete" }[lang]}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-foreground/70 block mb-1">
+                        {{ ar: "نص السؤال", fr: "Intitulé de la question", en: "Question title" }[lang]}
+                      </label>
+                      <Input
+                        value={item.question}
+                        onChange={(e) => updateFaqItem(idx, "question", e.target.value)}
+                        placeholder={{ ar: "مثال: هل يتطلب التسجيل مهارات حاسوبية متقدمة؟", fr: "ex. Les cours sont-ils accessibles 24h/24 et 7j/7 ?", en: "e.g. Is course access 24/7?" }[lang]}
+                        className="bg-white text-xs h-9"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-foreground/70 block mb-1">
+                        {{ ar: "الإجابة التوضيحية", fr: "Réponse détaillée", en: "Detailed answer" }[lang]}
+                      </label>
+                      <Textarea
+                        rows={2}
+                        value={item.answer}
+                        onChange={(e) => updateFaqItem(idx, "answer", e.target.value)}
+                        placeholder={{ ar: "اكتبي إجابة شاملة وواضحة...", fr: "Rédigez une réponse claire et rassurante...", en: "Write a comprehensive answer..." }[lang]}
+                        className="bg-white text-xs"
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex items-center justify-between pt-2">
+                  <Button type="button" variant="outline" size="sm" onClick={addFaqItem} className="text-xs">
+                    <Plus className="w-3.5 h-3.5 mr-1" />
+                    {{ ar: "إضافة سؤال آخر", fr: "Ajouter une autre question", en: "Add another question" }[lang]}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    onClick={handleSaveFaq}
+                    disabled={updateMutation.isPending}
+                    className="font-bold bg-black hover:bg-neutral-800 text-white"
+                  >
+                    {updateMutation.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}
+                    {{ ar: "حفظ الأسئلة الشائعة", fr: "Enregistrer la FAQ", en: "Save FAQ" }[lang]}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )
       ) : (
         activeCourseId && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-6xl">

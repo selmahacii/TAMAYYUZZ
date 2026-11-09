@@ -119,6 +119,7 @@ export default function CoursePublicDetailPage() {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [payment, setPayment] = useState({ cardName: "", cardNumber: "", expiry: "", cvc: "" });
   const [expandedLessons, setExpandedLessons] = useState<Set<number>>(new Set());
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const toggleLesson = (id: number) => setExpandedLessons((prev) => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -384,6 +385,41 @@ export default function CoursePublicDetailPage() {
               </div>
             </div>
 
+            {/* Promotional Video Player */}
+            {(course as any).promoVideoUrl && (
+              <div className="bg-white border border-border shadow-sm rounded-2xl overflow-hidden p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-foreground flex items-center gap-2" style={{ fontFamily: "Cairo, sans-serif" }}>
+                    <Play className="w-5 h-5 text-neutral-800" />
+                    {{ ar: "فيديو العرض الترويجي الرسمي", fr: "Aperçu vidéo de la formation", en: "Official Course Preview" }[lang]}
+                  </h2>
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-800">
+                    {{ ar: "معاينة مجانية", fr: "Extrait libre", en: "Free preview" }[lang]}
+                  </span>
+                </div>
+                <div className="aspect-video w-full rounded-xl overflow-hidden bg-black shadow-inner flex items-center justify-center">
+                  {(course as any).promoVideoUrl.includes("youtube.com") || (course as any).promoVideoUrl.includes("youtu.be") ? (
+                    <iframe
+                      src={(course as any).promoVideoUrl.replace("watch?v=", "embed/").replace("youtu.be/", "www.youtube.com/embed/")}
+                      className="w-full h-full"
+                      title={course.title}
+                      allowFullScreen
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    />
+                  ) : (course as any).promoVideoUrl.includes("vimeo.com") ? (
+                    <iframe
+                      src={(course as any).promoVideoUrl.replace("vimeo.com/", "player.vimeo.com/video/")}
+                      className="w-full h-full"
+                      title={course.title}
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video src={(course as any).promoVideoUrl} controls className="w-full h-full object-contain" />
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* What you'll learn */}
             {course.learningObjectives?.length > 0 && (
               <div className="bg-white border border-border shadow-sm rounded-2xl p-6">
@@ -440,46 +476,182 @@ export default function CoursePublicDetailPage() {
 
             {/* Curriculum */}
             <div className="bg-white border border-border shadow-sm rounded-2xl p-6">
-              <h2 className="text-lg font-bold text-foreground mb-4" style={{ fontFamily: "Cairo, sans-serif" }}>
-                {{ ar: "محتوى الدورة", fr: "Programme du cours", en: "Course content" }[lang]}
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-foreground flex items-center gap-2" style={{ fontFamily: "Cairo, sans-serif" }}>
+                  <BookOpen className="w-5 h-5 text-neutral-800" />
+                  {{ ar: "محتوى الدورة والمنهاج", fr: "Programme et contenu détaillé", en: "Course curriculum" }[lang]}
+                </h2>
+                <span className="text-xs font-semibold text-muted-foreground">
+                  {course.chapters?.length ? `${course.chapters.length} chapitres · ` : ""}{course.lessons.length} {{ ar: "درس", fr: "leçons", en: "lessons" }[lang]}
+                </span>
+              </div>
+
               {course.lessons.length === 0 ? (
                 <p className="text-muted-foreground text-sm">{{ ar: "لا توجد دروس بعد", fr: "Aucune leçon pour le moment", en: "No lessons yet" }[lang]}</p>
               ) : (
-                <div className="space-y-2">
-                  {course.lessons.map((lesson, i) => {
-                    const isLocked = isPaid && !isEnrolledOrPurchased && i > 0;
-                    const isOpen = expandedLessons.has(lesson.id);
-                    const canPreview = !isLocked && !!lesson.description;
+                <div className="space-y-4">
+                  {course.chapters && course.chapters.length > 0 ? (
+                    course.chapters.map((chap, cIdx) => {
+                      const chapLessons = course.lessons.filter((l) => l.chapterId === chap.id);
+                      if (chapLessons.length === 0) return null;
+                      return (
+                        <div key={chap.id} className="rounded-xl border border-border overflow-hidden bg-neutral-50/50">
+                          <div className="px-4 py-3 bg-neutral-100/70 border-b border-border flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-6 h-6 rounded-full bg-black text-white text-xs font-bold flex items-center justify-center shrink-0">
+                                {cIdx + 1}
+                              </span>
+                              <div>
+                                <h3 className="text-sm font-bold text-foreground">{chap.title}</h3>
+                                {chap.description && <p className="text-[11px] text-muted-foreground mt-0.5">{chap.description}</p>}
+                              </div>
+                            </div>
+                            <span className="text-[11px] font-mono text-muted-foreground">
+                              {chapLessons.length} {{ ar: "درس", fr: "leçons", en: "lessons" }[lang]}
+                            </span>
+                          </div>
+                          <div className="p-2 space-y-1.5">
+                            {chapLessons.map((lesson, lIdx) => {
+                              const globalIndex = course.lessons.findIndex((x) => x.id === lesson.id);
+                              const isLocked = isPaid && !isEnrolledOrPurchased && globalIndex > 0;
+                              const isOpen = expandedLessons.has(lesson.id);
+                              const canPreview = !isLocked && !!lesson.description;
+                              return (
+                                <div key={lesson.id} className="rounded-lg bg-white border border-border/80 overflow-hidden">
+                                  <button
+                                    type="button"
+                                    onClick={() => canPreview && toggleLesson(lesson.id)}
+                                    disabled={!canPreview}
+                                    className="w-full flex items-center gap-3 py-2 px-3 text-left disabled:cursor-default"
+                                  >
+                                    <span className="text-muted-foreground text-xs w-4 text-center shrink-0">{lIdx + 1}</span>
+                                    {typeIcon[lesson.type] ?? typeIcon.text}
+                                    <span className="text-foreground/85 text-xs font-medium flex-1">{lesson.title}</span>
+                                    {lesson.durationMinutes && <span className="text-muted-foreground text-[11px] shrink-0">{lesson.durationMinutes}min</span>}
+                                    {isLocked ? (
+                                      <Lock className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                                    ) : canPreview ? (
+                                      <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                                    ) : null}
+                                  </button>
+                                  {isOpen && canPreview && (
+                                    <div className="px-3 pb-3 pl-10 text-xs text-foreground/60 leading-relaxed whitespace-pre-line border-t border-border/40 pt-2 bg-neutral-50/50">
+                                      {lesson.description}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : null}
+
+                  {/* Lessons without chapter (if any) */}
+                  {(() => {
+                    const unassigned = course.chapters?.length ? course.lessons.filter((l) => !l.chapterId) : course.lessons;
+                    if (unassigned.length === 0) return null;
                     return (
-                      <div key={lesson.id} className="rounded-xl bg-muted/50 border border-border overflow-hidden">
+                      <div className="space-y-1.5">
+                        {course.chapters?.length ? (
+                          <div className="text-xs font-bold uppercase text-muted-foreground tracking-wider mb-2 pt-2">
+                            {{ ar: "دروس إضافية", fr: "Modules complémentaires", en: "Additional lessons" }[lang]}
+                          </div>
+                        ) : null}
+                        {unassigned.map((lesson, i) => {
+                          const isLocked = isPaid && !isEnrolledOrPurchased && i > 0;
+                          const isOpen = expandedLessons.has(lesson.id);
+                          const canPreview = !isLocked && !!lesson.description;
+                          return (
+                            <div key={lesson.id} className="rounded-xl bg-muted/40 border border-border overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => canPreview && toggleLesson(lesson.id)}
+                                disabled={!canPreview}
+                                className="w-full flex items-center gap-3 py-2.5 px-3 text-left disabled:cursor-default"
+                              >
+                                <span className="text-muted-foreground text-xs w-5 text-center shrink-0">{i + 1}</span>
+                                {typeIcon[lesson.type] ?? typeIcon.text}
+                                <span className="text-foreground/80 text-sm flex-1">{lesson.title}</span>
+                                {lesson.durationMinutes && <span className="text-muted-foreground text-xs shrink-0">{lesson.durationMinutes}min</span>}
+                                {isLocked ? (
+                                  <Lock className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
+                                ) : canPreview ? (
+                                  <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                                ) : null}
+                              </button>
+                              {isOpen && canPreview && (
+                                <div className="px-3 pb-3 pl-11 text-xs text-foreground/60 leading-relaxed whitespace-pre-line border-t border-border/40 pt-2 bg-white">
+                                  {lesson.description}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Final certification exam notification badge */}
+                  {course.hasFinalExam && (
+                    <div className="mt-4 p-4 rounded-xl border border-amber-200 bg-amber-50/60 flex items-start gap-3">
+                      <Award className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                          {{ ar: "امتحان نهائي معتمد ومطلوب للحصول على الشهادة", fr: "Examen final certifiant requis pour l'obtention du diplôme", en: "Official certification exam required for diploma" }[lang]}
+                        </h4>
+                        <p className="text-xs text-amber-800/80 mt-1">
+                          {{ ar: "يتضمن هذا المسار اختبارًا تقييميًا شاملاً عند إنهاء كافة الدروس، يتم إصدار شهادة التخرج الرسمية بعد تحقيق معدل النجاح المحدد.", fr: "Ce parcours inclut une évaluation finale complète. Le certificat officiel avec signature et code unique est délivré dès validation du seuil requis.", en: "This track includes a final exam. Your verified certificate is issued immediately upon passing." }[lang]}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Course FAQ Section */}
+            {(course as any).faq && Array.isArray((course as any).faq) && (course as any).faq.length > 0 && (
+              <div className="bg-white border border-border shadow-sm rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-foreground flex items-center gap-2" style={{ fontFamily: "Cairo, sans-serif" }}>
+                    <HelpCircle className="w-5 h-5 text-neutral-800" />
+                    {{ ar: "الأسئلة الشائعة حول الدورة", fr: "Questions fréquentes (FAQ)", en: "Frequently Asked Questions" }[lang]}
+                  </h2>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-800">
+                    {(course as any).faq.length} {{ ar: "سؤال وجواب", fr: "questions", en: "questions" }[lang]}
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {(course as any).faq.map((f: { question: string; answer: string }, idx: number) => {
+                    const isOpen = openFaqIndex === idx;
+                    return (
+                      <div key={idx} className="border border-border rounded-xl overflow-hidden transition-colors bg-[#fafafa]">
                         <button
                           type="button"
-                          onClick={() => canPreview && toggleLesson(lesson.id)}
-                          disabled={!canPreview}
-                          className="w-full flex items-center gap-3 py-2.5 px-3 text-left disabled:cursor-default"
+                          onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                          className="w-full flex items-center justify-between p-4 text-left font-bold text-sm text-foreground hover:bg-neutral-100/60 transition-colors"
                         >
-                          <span className="text-muted-foreground text-xs w-5 text-center shrink-0">{i + 1}</span>
-                          {typeIcon[lesson.type] ?? typeIcon.text}
-                          <span className="text-foreground/80 text-sm flex-1">{lesson.title}</span>
-                          {lesson.durationMinutes && <span className="text-muted-foreground text-xs shrink-0">{lesson.durationMinutes}min</span>}
-                          {isLocked ? (
-                            <Lock className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-                          ) : canPreview ? (
-                            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                          ) : null}
+                          <span className="flex items-center gap-3">
+                            <span className="w-6 h-6 rounded-full bg-neutral-200 text-neutral-800 text-xs flex items-center justify-center shrink-0">
+                              {idx + 1}
+                            </span>
+                            {f.question}
+                          </span>
+                          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 shrink-0 ${isOpen ? "rotate-180" : ""}`} />
                         </button>
-                        {isOpen && canPreview && (
-                          <div className="px-3 pb-3 pl-11 text-xs text-foreground/60 leading-relaxed whitespace-pre-line">
-                            {lesson.description}
+                        {isOpen && (
+                          <div className="px-4 pb-4 pt-2 text-sm text-foreground/80 leading-relaxed border-t border-border/50 bg-white">
+                            <p className="whitespace-pre-line pl-9">{f.answer}</p>
                           </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Student Reviews & Ratings Section */}
             <div className="bg-white border border-border shadow-sm rounded-2xl p-6">
