@@ -1879,6 +1879,36 @@ export default {
           return jsonResponse({ message: "Paiement validé avec succès" });
         }
 
+        // POST /api/admin/purchases/:id/reject
+        const purchaseRejectMatch = url.pathname.match(/^\/api\/admin\/purchases\/(\d+)\/reject$/);
+        if (purchaseRejectMatch && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const purchaseId = parseInt(purchaseRejectMatch[1]);
+          const body = await request.json().catch(() => ({}));
+          const reason = body.reason || "Reçu non conforme ou illisible";
+
+          const pRows = await queryNeon("SELECT * FROM purchases WHERE id = $1 LIMIT 1;", [purchaseId]);
+          if (pRows.length === 0) return jsonResponse({ error: "Achat introuvable" }, 404);
+          const purchase = pRows[0];
+
+          await queryNeon("UPDATE purchases SET status = 'rejected', rejection_reason = $1, updated_at = NOW() WHERE id = $2;", [reason, purchaseId]);
+          await queryNeon("UPDATE invoices SET status = 'cancelled' WHERE purchase_id = $1;", [purchaseId]);
+
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, details, created_at) VALUES ($1, 'REJECT_PURCHASE', 'purchase', $2, $3, NOW());", [
+            user.id,
+            purchaseId,
+            JSON.stringify({ studentId: purchase.user_id, courseId: purchase.course_id, reason })
+          ]);
+
+          await queryNeon("INSERT INTO in_app_notifications (user_id, title, message, type, link, is_read, created_at) VALUES ($1, 'Justificatif Non Conforme', $2, 'warning', '/student/purchases', false, NOW());", [
+            purchase.user_id,
+            `Votre justificatif de paiement n'a pas pu être validé : ${reason}. Veuillez soumettre un reçu valide.`
+          ]);
+
+          return jsonResponse({ message: "Paiement rejeté" });
+        }
+
         // GET /api/admin/tickets
         if (url.pathname === "/api/admin/tickets" && request.method === "GET") {
           const user = await getAuthUser(request);

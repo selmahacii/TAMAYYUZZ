@@ -49,6 +49,7 @@ export default function AdminCoachesPage() {
   const [pendingReject, setPendingReject] = useState<{ id: number; name: string } | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string } | null>(null);
+  const [inspectCoach, setInspectCoach] = useState<any | null>(null);
 
   // Form states for creating coach
   const [name, setName] = useState("");
@@ -186,22 +187,34 @@ export default function AdminCoachesPage() {
           </div>
         </div>
         
-        {showActions && (
-          <div className="flex gap-2 shrink-0 self-end md:self-center">
-            <Button size="sm" className="gap-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
-              onClick={() => handleApprove(coach.id, coach.name)}
-              disabled={approveMutation.isPending}>
-              <CheckCircle className="w-3.5 h-3.5" />
-              {{ ar: "موافقة", fr: "Approuver", en: "Approve" }[lang]}
-            </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 text-xs border-rose-200 text-rose-700 hover:bg-rose-50/50 bg-rose-50/30"
-              onClick={() => setPendingReject({ id: coach.id, name: coach.name })}
-              disabled={rejectMutation.isPending}>
-              <XCircle className="w-3.5 h-3.5" />
-              {{ ar: "رفض", fr: "Rejeter", en: "Reject" }[lang]}
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setInspectCoach(coach)}
+            className="h-8 gap-1.5 text-xs font-semibold border-border text-foreground hover:bg-neutral-100"
+          >
+            <Eye className="w-3.5 h-3.5 text-neutral-600" />
+            {{ ar: "الملف الكامل", fr: "Consulter le dossier", en: "Full Dossier" }[lang]}
+          </Button>
+
+          {showActions && (
+            <>
+              <Button size="sm" className="gap-1.5 text-xs font-bold bg-neutral-900 hover:bg-neutral-800 text-white"
+                onClick={() => handleApprove(coach.id, coach.name)}
+                disabled={approveMutation.isPending}>
+                <CheckCircle className="w-3.5 h-3.5" />
+                {{ ar: "موافقة", fr: "Approuver", en: "Approve" }[lang]}
+              </Button>
+              <Button size="sm" variant="outline" className="gap-1.5 text-xs border-red-200 text-red-700 hover:bg-red-50 bg-red-50/30"
+                onClick={() => setPendingReject({ id: coach.id, name: coach.name })}
+                disabled={rejectMutation.isPending}>
+                <XCircle className="w-3.5 h-3.5" />
+                {{ ar: "رفض", fr: "Rejeter", en: "Reject" }[lang]}
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {coach.bio && (
@@ -523,6 +536,166 @@ export default function AdminCoachesPage() {
               {{ ar: "إغلاق", fr: "Fermer", en: "Close" }[lang]}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Full Institutional Coach Profile Modal */}
+      <Dialog open={!!inspectCoach} onOpenChange={(open) => !open && setInspectCoach(null)}>
+        <DialogContent className="max-w-3xl bg-white border border-border p-0 overflow-hidden shadow-2xl rounded-2xl">
+          {inspectCoach && (
+            <div>
+              {/* Header */}
+              <div className="bg-neutral-900 text-white p-6 border-b border-neutral-800">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-800 text-neutral-200 border border-neutral-700">
+                      <GraduationCap className="w-3.5 h-3.5" />
+                      {{ ar: "الملف الأكاديمي والمهني", fr: "Dossier Pédagogique Officiel", en: "Academic Dossier" }[lang]}
+                    </span>
+                    <span className="font-mono text-xs text-neutral-400">ID #{inspectCoach.id}</span>
+                  </div>
+                  <Badge variant={inspectCoach.isApproved ? "success" : "warning"} className="text-xs">
+                    {inspectCoach.isApproved
+                      ? { ar: "معتمد ومفعل", fr: "Formatrice Agréée", en: "Approved" }[lang]
+                      : { ar: "قيد فحص الملف", fr: "En cours d'agrément", en: "Pending Approval" }[lang]}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-full bg-neutral-800 border-2 border-neutral-700 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                    {inspectCoach.name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-bold tracking-tight text-white">
+                      {inspectCoach.name}
+                    </DialogTitle>
+                    <div className="flex items-center gap-4 mt-1 text-xs text-neutral-300 flex-wrap">
+                      <span className="flex items-center gap-1 font-mono text-neutral-300">
+                        <Mail className="w-3.5 h-3.5" /> {inspectCoach.email}
+                      </span>
+                      {inspectCoach.phone && (
+                        <span className="font-mono text-neutral-300">Tél : {inspectCoach.phone}</span>
+                      )}
+                      {inspectCoach.domain && (
+                        <span className="text-neutral-300 bg-neutral-800 px-2 py-0.5 rounded border border-neutral-700">
+                          {inspectCoach.domain}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-6 max-h-[72vh] overflow-y-auto text-xs">
+                {/* Teaching Performance KPI */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-neutral-50 border border-border p-3.5 rounded-xl">
+                    <span className="text-muted-foreground font-semibold text-[10px] uppercase block">Formations Actives</span>
+                    <p className="text-base font-black text-neutral-900 font-mono mt-0.5">{inspectCoach.totalCourses ?? 0}</p>
+                  </div>
+                  <div className="bg-neutral-50 border border-border p-3.5 rounded-xl">
+                    <span className="text-muted-foreground font-semibold text-[10px] uppercase block">Étudiantes Formées</span>
+                    <p className="text-base font-black text-neutral-900 font-mono mt-0.5">{inspectCoach.totalStudents ?? 0}</p>
+                  </div>
+                  <div className="bg-neutral-50 border border-border p-3.5 rounded-xl">
+                    <span className="text-muted-foreground font-semibold text-[10px] uppercase block">Commissions Générées</span>
+                    <p className="text-base font-black text-neutral-900 font-mono mt-0.5">
+                      {parseFloat(String(inspectCoach.totalCommissions ?? 0)).toLocaleString("fr-DZ")} DZD
+                    </p>
+                  </div>
+                  <div className="bg-neutral-50 border border-border p-3.5 rounded-xl">
+                    <span className="text-muted-foreground font-semibold text-[10px] uppercase block">Solde en Attente</span>
+                    <p className={`text-base font-black font-mono mt-0.5 ${parseFloat(String(inspectCoach.pendingCommissions ?? 0)) > 0 ? "text-amber-800" : "text-neutral-900"}`}>
+                      {parseFloat(String(inspectCoach.pendingCommissions ?? 0)).toLocaleString("fr-DZ")} DZD
+                    </p>
+                  </div>
+                </div>
+
+                {/* Biography & Vision */}
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-neutral-900 text-xs flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-neutral-600" />
+                    Biographie et parcours professionnel :
+                  </h4>
+                  <div className="p-3.5 bg-neutral-50 border border-border rounded-xl text-neutral-700 leading-relaxed italic">
+                    "{inspectCoach.bio || "Aucune biographie rédigée pour le moment."}"
+                  </div>
+                </div>
+
+                {/* Diplomas & KYC Certifications */}
+                <div className="space-y-2">
+                  <h4 className="font-bold text-neutral-900 text-xs flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-neutral-600" />
+                    Titres universitaires et accréditations professionnelles (Vérification KYC) :
+                  </h4>
+
+                  {inspectCoach.diplomas && inspectCoach.diplomas.length > 0 ? (
+                    <ul className="space-y-2">
+                      {inspectCoach.diplomas.map((d: any, idx: number) => (
+                        <li key={idx} className="flex items-center justify-between p-3 bg-white border border-border rounded-xl">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <GraduationCap className="w-4 h-4 text-neutral-600 shrink-0" />
+                            <span className="font-medium text-neutral-900 truncate">{d.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {d.documentUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewDoc({ url: d.documentUrl, title: d.name })}
+                                className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded border border-border hover:bg-neutral-50 text-neutral-700"
+                              >
+                                <Eye className="w-3 h-3" /> Visualiser
+                              </button>
+                            )}
+                            <Badge variant={d.verified ? "success" : "warning"} className="text-[10px]">
+                              {d.verified ? "Authentifié" : "En cours d'audit"}
+                            </Badge>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground p-3 bg-neutral-50 rounded-xl border border-border">
+                      Aucun diplôme ou justificatif joint au dossier d'inscription.
+                    </p>
+                  )}
+                </div>
+
+                {/* Teaching Plan */}
+                {inspectCoach.teachingPlan && (
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-neutral-900 text-xs">Plan de déploiement et méthodologie :</h4>
+                    <p className="p-3 bg-neutral-50 border border-border rounded-xl text-neutral-700 leading-relaxed">
+                      {inspectCoach.teachingPlan}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-border bg-neutral-50 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`/coach/students`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-700 hover:text-neutral-900 underline"
+                  >
+                    Voir ses cohortes d'étudiantes
+                  </a>
+                  <span className="text-neutral-300">·</span>
+                  <a
+                    href={`/admin/payouts`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-700 hover:text-neutral-900 underline"
+                  >
+                    Gérer ses versements
+                  </a>
+                </div>
+                <Button onClick={() => setInspectCoach(null)} size="sm" variant="outline" className="text-xs">
+                  {{ ar: "إغلاق", fr: "Fermer", en: "Close" }[lang]}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AdminLayout>
