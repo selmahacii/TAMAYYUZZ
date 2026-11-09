@@ -1868,6 +1868,12 @@ export default {
             `, [cRow.coach_id, purchase.id, purchase.course_id, commAmount, purchase.currency]);
           }
 
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, details, created_at) VALUES ($1, 'VERIFY_PURCHASE', 'purchase', $2, $3, NOW());", [
+            user.id,
+            purchaseId,
+            JSON.stringify({ studentId: purchase.user_id, courseId: purchase.course_id, amount: purchase.amount, method: purchase.payment_method })
+          ]);
+
           await queryNeon("INSERT INTO in_app_notifications (user_id, title, message, type, link, is_read, created_at) VALUES ($1, 'Paiement Validé !', 'Votre reçu a été approuvé par le Superadmin. Bon apprentissage !', 'success', $2, false, NOW());", [purchase.user_id, `/student/learn/${purchase.course_id}`]);
 
           return jsonResponse({ message: "Paiement validé avec succès" });
@@ -2284,6 +2290,58 @@ export default {
           })));
         }
 
+        // POST /api/admin/payouts
+        if (url.pathname === "/api/admin/payouts" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const body = await request.json();
+          const { coachId, amount, paymentMethod, referenceNumber, notes, commissionIds } = body;
+          if (!coachId || !amount) return jsonResponse({ error: "Coach et montant requis" }, 400);
+
+          const inserted = await queryNeon(`
+            INSERT INTO payouts (coach_id, amount, currency, status, payment_method, reference_number, notes, processed_at, created_at)
+            VALUES ($1, $2, 'DZD', 'processed', $3, $4, $5, NOW(), NOW())
+            RETURNING *;
+          `, [coachId, String(amount), paymentMethod || "baridimob", referenceNumber || null, notes || null]);
+
+          if (Array.isArray(commissionIds) && commissionIds.length > 0) {
+            await queryNeon(`UPDATE commissions SET is_paid = true, status = 'paid' WHERE id = ANY($1);`, [commissionIds]);
+          }
+
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, details, created_at) VALUES ($1, 'CREATE_PAYOUT', 'payout', $2, $3, NOW());", [
+            user.id,
+            inserted[0].id,
+            JSON.stringify({ coachId, amount, referenceNumber })
+          ]);
+
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // PATCH /api/admin/payouts/:id
+        const payoutPatchMatch = url.pathname.match(/^\/api\/admin\/payouts\/(\d+)$/);
+        if (payoutPatchMatch && request.method === "PATCH") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const payoutId = parseInt(payoutPatchMatch[1]);
+          const body = await request.json();
+          const { status } = body;
+
+          const updated = await queryNeon(`
+            UPDATE payouts
+            SET status = $1, processed_at = CASE WHEN $1 = 'processed' THEN NOW() ELSE processed_at END
+            WHERE id = $2
+            RETURNING *;
+          `, [status, payoutId]);
+
+          await queryNeon("INSERT INTO audit_logs (user_id, action, entity, entity_id, details, created_at) VALUES ($1, 'UPDATE_PAYOUT_STATUS', 'payout', $2, $3, NOW());", [
+            user.id,
+            payoutId,
+            JSON.stringify({ status })
+          ]);
+
+          return jsonResponse(updated[0]);
+        }
+
         // GET /api/admin/certificate-templates & GET /api/certificate-templates
         if ((url.pathname === "/api/admin/certificate-templates" || url.pathname === "/api/certificate-templates") && request.method === "GET") {
           const templates = await queryNeon("SELECT * FROM certificate_templates ORDER BY is_default DESC, id ASC;");
@@ -2304,10 +2362,99 @@ export default {
           })));
         }
 
+        // POST /api/admin/certificate-templates
+        if ((url.pathname === "/api/admin/certificate-templates" || url.pathname === "/api/certificate-templates") && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const body = await request.json();
+          const inserted = await queryNeon(`
+            INSERT INTO certificate_templates (name, description, primary_color, accent_color, logo_url, background_url, layout, custom_title_text, signature_title, font_family, is_default, is_active, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, NOW())
+            RETURNING *;
+          `, [
+            body.name, body.description || null, body.primaryColor || "#1e293b",
+            body.accentColor || "#3b82f6", body.logoUrl || null, body.backgroundUrl || null,
+            body.layout || "classic", body.customTitleText || "Certificat de Réussite",
+            body.signatureTitle || "Directrice Pédagogique", body.fontFamily || "Inter",
+            !!body.isDefault
+          ]);
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // PUT /api/admin/certificate-templates/:id
+        const certTplMatch = url.pathname.match(/^\/api\/admin\/certificate-templates\/(\d+)$/);
+        if (certTplMatch && request.method === "PUT") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const id = parseInt(certTplMatch[1]);
+          const body = await request.json();
+          const updated = await queryNeon(`
+            UPDATE certificate_templates
+            SET name = COALESCE($1, name), description = COALESCE($2, description),
+                primary_color = COALESCE($3, primary_color), accent_color = COALESCE($4, accent_color),
+                logo_url = COALESCE($5, logo_url), background_url = COALESCE($6, background_url),
+                layout = COALESCE($7, layout), custom_title_text = COALESCE($8, custom_title_text),
+                signature_title = COALESCE($9, signature_title), font_family = COALESCE($10, font_family),
+                is_default = COALESCE($11, is_default)
+            WHERE id = $12
+            RETURNING *;
+          `, [body.name, body.description, body.primaryColor, body.accentColor, body.logoUrl, body.backgroundUrl, body.layout, body.customTitleText, body.signatureTitle, body.fontFamily, body.isDefault, id]);
+          return jsonResponse(updated[0]);
+        }
+
+        // DELETE /api/admin/certificate-templates/:id
+        if (certTplMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const id = parseInt(certTplMatch[1]);
+          await queryNeon("DELETE FROM certificate_templates WHERE id = $1;", [id]);
+          return jsonResponse({ success: true, message: "Modèle supprimé" });
+        }
+
         // GET /api/admin/knowledge-base
         if (url.pathname === "/api/admin/knowledge-base" && request.method === "GET") {
           const kb = await queryNeon("SELECT * FROM knowledge_base ORDER BY \"order\" ASC, created_at DESC;");
           return jsonResponse(kb);
+        }
+
+        // POST /api/admin/knowledge-base
+        if (url.pathname === "/api/admin/knowledge-base" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const body = await request.json();
+          const inserted = await queryNeon(`
+            INSERT INTO knowledge_base (title, content, category, author_id, is_published, "order", created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+            RETURNING *;
+          `, [body.title, body.content, body.category || "general", user.id, body.isPublished !== false, body.order || 0]);
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // PUT /api/admin/knowledge-base/:id
+        const kbAdminMatch = url.pathname.match(/^\/api\/admin\/knowledge-base\/(\d+)$/);
+        if (kbAdminMatch && request.method === "PUT") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const id = parseInt(kbAdminMatch[1]);
+          const body = await request.json();
+          const updated = await queryNeon(`
+            UPDATE knowledge_base
+            SET title = COALESCE($1, title), content = COALESCE($2, content),
+                category = COALESCE($3, category), is_published = COALESCE($4, is_published),
+                "order" = COALESCE($5, "order"), updated_at = NOW()
+            WHERE id = $6
+            RETURNING *;
+          `, [body.title, body.content, body.category, body.isPublished, body.order, id]);
+          return jsonResponse(updated[0]);
+        }
+
+        // DELETE /api/admin/knowledge-base/:id
+        if (kbAdminMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const id = parseInt(kbAdminMatch[1]);
+          await queryNeon("DELETE FROM knowledge_base WHERE id = $1;", [id]);
+          return jsonResponse({ success: true, message: "Article supprimé" });
         }
 
         // GET /api/knowledge-base (Public Help Center)
@@ -2364,6 +2511,47 @@ export default {
         if ((url.pathname === "/api/admin/centers" || url.pathname === "/api/centers") && request.method === "GET") {
           const centers = await queryNeon("SELECT * FROM centers ORDER BY name ASC;");
           return jsonResponse(centers);
+        }
+
+        // POST /api/centers
+        if (url.pathname === "/api/centers" && request.method === "POST") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const body = await request.json();
+          const inserted = await queryNeon(`
+            INSERT INTO centers (name, wilaya, address, phone, email, manager_name, capacity, is_active, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW())
+            RETURNING *;
+          `, [body.name, body.wilaya, body.address, body.phone || null, body.email || null, body.managerName || null, body.capacity || 30]);
+          return jsonResponse(inserted[0], 201);
+        }
+
+        // PUT /api/centers/:id
+        const centerMatch = url.pathname.match(/^\/api\/centers\/(\d+)$/);
+        if (centerMatch && request.method === "PUT") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const id = parseInt(centerMatch[1]);
+          const body = await request.json();
+          const updated = await queryNeon(`
+            UPDATE centers
+            SET name = COALESCE($1, name), wilaya = COALESCE($2, wilaya),
+                address = COALESCE($3, address), phone = COALESCE($4, phone),
+                email = COALESCE($5, email), manager_name = COALESCE($6, manager_name),
+                capacity = COALESCE($7, capacity)
+            WHERE id = $8
+            RETURNING *;
+          `, [body.name, body.wilaya, body.address, body.phone, body.email, body.managerName, body.capacity, id]);
+          return jsonResponse(updated[0]);
+        }
+
+        // DELETE /api/centers/:id
+        if (centerMatch && request.method === "DELETE") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const id = parseInt(centerMatch[1]);
+          await queryNeon("DELETE FROM centers WHERE id = $1;", [id]);
+          return jsonResponse({ success: true, message: "Centre supprimé" });
         }
 
         // Default 404 for any other API endpoint (Prevents returning object that breaks frontend Array.map)
