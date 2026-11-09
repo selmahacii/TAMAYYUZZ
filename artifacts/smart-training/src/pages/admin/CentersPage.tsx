@@ -203,48 +203,64 @@ export default function AdminCentersPage() {
               {{ ar: "إضافة مركز", fr: "Ajouter un centre", en: "Add Center" }[lang]}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md bg-white border border-border">
-            <DialogHeader>
-              <DialogTitle className="text-foreground">
+          <DialogContent className="max-w-xl bg-white border border-border p-0 overflow-hidden rounded-2xl shadow-2xl">
+            <div className="bg-neutral-900 text-white p-5 border-b border-neutral-800">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-800 text-neutral-300 border border-neutral-700 mb-1.5">
+                <Building2 className="w-3.5 h-3.5" />
+                {{ ar: "المؤسسات الشريكة", fr: "Centre de Formation Partenaire", en: "Partner Training Center" }[lang]}
+              </div>
+              <DialogTitle className="text-lg font-bold text-white tracking-tight">
                 {editingCenter
-                  ? { ar: "تعديل مركز", fr: "Modifier le centre", en: "Edit Center" }[lang]
-                  : { ar: "إضافة مركز جديد", fr: "Ajouter un nouveau centre", en: "Add New Center" }[lang]}
+                  ? { ar: "تعديل بيانات المركز الشريك", fr: "Modifier le centre partenaire", en: "Edit Partner Center" }[lang]
+                  : { ar: "تسجيل مركز تدريب معتمد جديد", fr: "Enregistrer un nouveau centre agréé", en: "Register Partner Center" }[lang]}
               </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-              <div className="space-y-1">
-                <Label htmlFor="name" className="text-foreground">{{ ar: "الاسم", fr: "Nom", en: "Name" }[lang]}</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Centre de Formation El-Nadjah" required className="bg-white border-border text-foreground" />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="description" className="text-foreground">{{ ar: "الوصف", fr: "Description", en: "Description" }[lang]}</Label>
-                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Details..." className="bg-white border-border text-foreground" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label htmlFor="email" className="text-foreground">{{ ar: "البريد الإلكتروني", fr: "Email", en: "Email" }[lang]}</Label>
-                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@centre.com" className="bg-white border-border text-foreground" />
+              <p className="text-xs text-neutral-300 mt-1">
+                {{ ar: "ربط مراكز التدريب الميدانية في الولايات لتمكين الحصص الحضورية وورشات العمل", fr: "Gestion des infrastructures physiques pour les ateliers pratiques et formations présentielles.", en: "Physical facility management for in-person workshops." }[lang]}
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="name" className="text-xs font-bold text-foreground">{{ ar: "اسم المركز الرسمي", fr: "Dénomination officielle du centre", en: "Official Center Name" }[lang]} *</Label>
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="ex. Institut Supérieur des Métiers Numériques" required className="bg-neutral-50 border-border text-sm focus:bg-white" />
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="phone" className="text-foreground">{{ ar: "الهاتف", fr: "Téléphone", en: "Phone" }[lang]}</Label>
-                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+213..." className="bg-white border-border text-foreground" />
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="description" className="text-xs font-bold text-foreground">{{ ar: "نبذة عن التجهيزات والاعتماد", fr: "Équipements et accréditation", en: "Equipment & accreditation" }[lang]}</Label>
+                  <Textarea id="description" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Salles informatiques équipées, laboratoires de langues, agrément ministère..." className="bg-neutral-50 border-border text-xs focus:bg-white resize-none" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-bold text-foreground">{{ ar: "البريد الإلكتروني المهني", fr: "Email de contact", en: "Contact Email" }[lang]}</Label>
+                  <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@institut.dz" className="bg-neutral-50 border-border text-sm focus:bg-white" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="phone" className="text-xs font-bold text-foreground">{{ ar: "الهاتف / واتساب", fr: "Téléphone direct", en: "Phone" }[lang]}</Label>
+                  <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+213 (0) ..." className="bg-neutral-50 border-border text-sm focus:bg-white" />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="address" className="text-xs font-bold text-foreground">{{ ar: "العنوان والولاية", fr: "Adresse complète (Wilaya & Commune)", en: "Full Address" }[lang]} *</Label>
+                  <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="ex. 14 Rue Didouche Mourad, Alger Centre" required className="bg-neutral-50 border-border text-sm focus:bg-white" />
                 </div>
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="address" className="text-foreground">{{ ar: "العنوان", fr: "Adresse", en: "Address" }[lang]}</Label>
-                <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Alger, Algérie" className="bg-white border-border text-foreground" />
+
+              <div className="flex items-center gap-2 pt-2 border-t border-border">
+                <input type="checkbox" id="isActive" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-border accent-neutral-900" />
+                <Label htmlFor="isActive" className="text-xs font-semibold text-foreground cursor-pointer select-none">
+                  {{ ar: "المركز قيد التشغيل والجاهزية لاستقبال المتدربات", fr: "Centre opérationnel et agréé pour accueillir les étudiantes", en: "Center is active and ready for in-person students" }[lang]}
+                </Label>
               </div>
-              <div className="flex items-center gap-2 pt-2">
-                <input type="checkbox" id="isActive" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="w-4 h-4 rounded border-border" />
-                <Label htmlFor="isActive" className="text-foreground cursor-pointer select-none">{{ ar: "نشط", fr: "Actif / Opérationnel", en: "Active" }[lang]}</Label>
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => { setIsOpen(false); setEditingCenter(null); }} className="border-border text-foreground">
+
+              <div className="flex justify-end gap-2.5 pt-4 border-t border-border">
+                <Button type="button" variant="outline" onClick={() => { setIsOpen(false); setEditingCenter(null); }} className="text-xs">
                   {{ ar: "إلغاء", fr: "Annuler", en: "Cancel" }[lang]}
                 </Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                  {{ ar: "حفظ", fr: "Enregistrer", en: "Save" }[lang]}
+                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending || !name.trim()} className="bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs px-5">
+                  {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}
+                  {{ ar: "حفظ البيانات", fr: "Enregistrer le centre", en: "Save Center" }[lang]}
                 </Button>
               </div>
             </form>
