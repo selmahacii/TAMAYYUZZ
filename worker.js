@@ -1969,6 +1969,356 @@ export default {
           return jsonResponse(formatUser(updated[0]));
         }
 
+        // GET /api/admin/users/:id/activities
+        const userActivitiesMatch = url.pathname.match(/^\/api\/admin\/users\/(\d+)\/activities$/);
+        if (userActivitiesMatch && request.method === "GET") {
+          const admin = await getAuthUser(request);
+          if (!admin || admin.role !== "admin") return jsonResponse({ error: "Non autorisé. Accès superadmin requis." }, 403);
+          const targetId = parseInt(userActivitiesMatch[1]);
+
+          const userRows = await queryNeon(`
+            SELECT u.*, c.name as center_name, c.address as center_address
+            FROM users u
+            LEFT JOIN centers c ON u.center_id = c.id
+            WHERE u.id = $1;
+          `, [targetId]);
+
+          if (userRows.length === 0) return jsonResponse({ error: "Utilisateur introuvable" }, 404);
+          const targetUser = userRows[0];
+
+          // 1. Purchases
+          const purchases = await queryNeon(`
+            SELECT p.*, c.title as course_title, c.price as course_official_price
+            FROM purchases p
+            LEFT JOIN courses c ON p.course_id = c.id
+            WHERE p.user_id = $1
+            ORDER BY p.paid_at DESC NULLS LAST, p.id DESC;
+          `, [targetId]);
+
+          // 2. Enrollments with progress
+          const enrollments = await queryNeon(`
+            SELECT e.*, c.title as course_title, c.category, c.level, c.image_url,
+                   count(DISTINCT l.id)::int as total_lessons,
+                   count(DISTINCT pr.id) FILTER (WHERE pr.is_completed = true)::int as completed_lessons
+            FROM enrollments e
+            JOIN courses c ON e.course_id = c.id
+            LEFT JOIN lessons l ON c.id = l.course_id
+            LEFT JOIN progress pr ON l.id = pr.lesson_id AND pr.user_id = e.user_id
+            WHERE e.user_id = $1
+            GROUP BY e.id, c.id
+            ORDER BY e.enrolled_at DESC;
+          `, [targetId]);
+
+          // 3. Progress
+          const progressRows = await queryNeon(`
+            SELECT pr.*, l.title as lesson_title, l.type as lesson_type, c.title as course_title
+            FROM progress pr
+            JOIN lessons l ON pr.lesson_id = l.id
+            JOIN courses c ON l.course_id = c.id
+            WHERE pr.user_id = $1
+            ORDER BY pr.updated_at DESC
+            LIMIT 60;
+          `, [targetId]);
+
+          // 4. Exam attempts
+          const examAttempts = await queryNeon(`
+            SELECT ea.*, c.title as course_title
+            FROM exam_attempts ea
+            JOIN courses c ON ea.course_id = c.id
+            WHERE ea.user_id = $1
+            ORDER BY ea.attempted_at DESC;
+          `, [targetId]);
+
+          // 5. Certificates
+          const certificates = await queryNeon(`
+            SELECT *
+            FROM certificates
+            WHERE user_id = $1
+            ORDER BY issued_at DESC;
+          `, [targetId]);
+
+          // 6. Tickets
+          const tickets = await queryNeon(`
+            SELECT *
+            FROM tickets
+            WHERE user_id = $1
+            ORDER BY created_at DESC;
+          `, [targetId]);
+
+          // 7. Course reviews
+          const reviews = await queryNeon(`
+            SELECT cr.*, c.title as course_title
+            FROM course_reviews cr
+            JOIN courses c ON cr.course_id = c.id
+            WHERE cr.user_id = $1
+            ORDER BY cr.created_at DESC;
+          `, [targetId]);
+
+          // 8. Lesson comments
+          const comments = await queryNeon(`
+            SELECT lc.*, l.title as lesson_title, c.title as course_title
+            FROM lesson_comments lc
+            JOIN lessons l ON lc.lesson_id = l.id
+            JOIN courses c ON l.course_id = c.id
+            WHERE lc.user_id = $1
+            ORDER BY lc.created_at DESC
+            LIMIT 40;
+          `, [targetId]);
+
+          // 9. Audit logs (actions done by or targeting this user)
+          const auditLogs = await queryNeon(`
+            SELECT al.*, actor.name as actor_name, actor.email as actor_email
+            FROM audit_logs al
+            LEFT JOIN users actor ON al.user_id = actor.id
+            WHERE al.user_id = $1 OR (al.entity = 'user' AND al.entity_id = $1)
+            ORDER BY al.created_at DESC
+            LIMIT 100;
+          `, [targetId]);
+
+          // 10. Coach specific data
+          let coachCourses = [];
+          let coachPayouts = [];
+          let coachPriceRequests = [];
+          if (targetUser.role === "coach") {
+            coachCourses = await queryNeon(`
+              SELECT c.*, count(DISTINCT e.id)::int as student_count
+              FROM courses c
+              LEFT JOIN enrollments e ON c.id = e.course_id
+              WHERE c.coach_id = $1
+              GROUP BY c.id
+              ORDER BY c.created_at DESC;
+            `, [targetId]);
+
+            coachPayouts = await queryNeon(`
+              SELECT * FROM payouts WHERE coach_id = $1 ORDER BY created_at DESC;
+            `, [targetId]);
+
+            coachPriceRequests = await queryNeon(`
+              SELECT pr.*, c.title as course_title
+              FROM price_requests pr
+              JOIN courses c ON pr.course_id = c.id
+              WHERE pr.coach_id = $1
+              ORDER BY pr.created_at DESC;
+            `, [targetId]);
+          }
+
+          // Generate Unified Chronological Timeline
+          const timeline = [];
+
+          // Add registration
+          if (targetUser.created_at) {
+            timeline.push({
+              id: `user-registered-${targetUser.id}`,
+              type: "ACCOUNT",
+              title: "Création du compte",
+              description: `Compte ${targetUser.role} créé avec l'adresse ${targetUser.email}`,
+              badge: "Inscription",
+              status: "success",
+              timestamp: new Date(targetUser.created_at).toISOString(),
+            });
+          }
+
+          // Purchases
+          purchases.forEach((p) => {
+            const date = p.paid_at || targetUser.created_at;
+            timeline.push({
+              id: `purchase-${p.id}`,
+              type: "PURCHASE",
+              title: `Paiement ${p.payment_method?.toUpperCase() || "DIRECT"} : ${p.course_title || "Formation"}`,
+              description: `Montant : ${Number(p.amount).toLocaleString("fr-FR")} ${p.currency || "DZD"}${p.discount_applied ? ` (Remise : ${p.discount_applied}%)` : ""} · Statut : ${p.status === "approved" ? "Validé" : p.status === "rejected" ? `Rejeté (${p.rejection_reason || "Reçu non conforme"})` : "En attente"}`,
+              badge: "Transaction",
+              status: p.status === "approved" ? "success" : p.status === "rejected" ? "error" : "warning",
+              timestamp: new Date(date).toISOString(),
+              metadata: { purchaseId: p.id, receiptUrl: p.receipt_url, amount: p.amount, method: p.payment_method }
+            });
+          });
+
+          // Enrollments
+          enrollments.forEach((e) => {
+            timeline.push({
+              id: `enrollment-${e.id}`,
+              type: "ENROLLMENT",
+              title: `Inscription confirmée : ${e.course_title}`,
+              description: `Niveau : ${e.level || "Tous niveaux"} · Progression actuelle : ${e.completed_lessons}/${e.total_lessons} leçons`,
+              badge: "Formation",
+              status: "success",
+              timestamp: new Date(e.enrolled_at).toISOString(),
+              metadata: { courseId: e.course_id, completed: e.completed_lessons, total: e.total_lessons }
+            });
+          });
+
+          // Exam attempts
+          examAttempts.forEach((ea) => {
+            timeline.push({
+              id: `exam-${ea.id}`,
+              type: "EXAM",
+              title: `Tentative d'examen final : ${ea.course_title}`,
+              description: `Score obtenu : ${ea.score}% · Résultat : ${ea.passed ? "Admis(e) avec succès" : "Ajourné(e)"}`,
+              badge: "Examen",
+              status: ea.passed ? "success" : "error",
+              timestamp: new Date(ea.attempted_at).toISOString(),
+              metadata: { examId: ea.id, score: ea.score, passed: ea.passed }
+            });
+          });
+
+          // Certificates
+          certificates.forEach((c) => {
+            timeline.push({
+              id: `cert-${c.id}`,
+              type: "CERTIFICATE",
+              title: `Certificat officiel délivré : ${c.course_name}`,
+              description: `Code d'authentification unique : ${c.certificate_code} · Note : ${c.exam_score ? `${c.exam_score}%` : "Validé"}`,
+              badge: "Certification",
+              status: "success",
+              timestamp: new Date(c.issued_at).toISOString(),
+              metadata: { certId: c.id, code: c.certificate_code }
+            });
+          });
+
+          // Tickets
+          tickets.forEach((t) => {
+            timeline.push({
+              id: `ticket-${t.id}`,
+              type: "TICKET",
+              title: `Ticket / Litige #${t.id} : ${t.subject}`,
+              description: `Catégorie : ${t.category} · Priorité : ${t.priority} · Statut : ${t.status}${t.resolution ? ` · Résolution : ${t.resolution}` : ""}`,
+              badge: "Support / Litige",
+              status: t.status === "resolved" || t.status === "closed" ? "success" : t.status === "in_progress" ? "warning" : "default",
+              timestamp: new Date(t.created_at).toISOString(),
+              metadata: { ticketId: t.id, status: t.status, priority: t.priority }
+            });
+          });
+
+          // Reviews
+          reviews.forEach((r) => {
+            timeline.push({
+              id: `review-${r.id}`,
+              type: "REVIEW",
+              title: `Avis publié (${r.rating}/5) sur ${r.course_title}`,
+              description: `Commentaire : "${r.comment}"`,
+              badge: "Évaluation",
+              status: "info",
+              timestamp: new Date(r.created_at).toISOString(),
+              metadata: { reviewId: r.id, rating: r.rating }
+            });
+          });
+
+          // Lesson comments
+          comments.forEach((lc) => {
+            timeline.push({
+              id: `comment-${lc.id}`,
+              type: "COMMENT",
+              title: `Commentaire sur ${lc.lesson_title} (${lc.course_title})`,
+              description: `"${lc.content}"`,
+              badge: "Discussion",
+              status: "info",
+              timestamp: new Date(lc.created_at).toISOString(),
+              metadata: { commentId: lc.id }
+            });
+          });
+
+          // Audit logs
+          auditLogs.forEach((al) => {
+            timeline.push({
+              id: `audit-${al.id}`,
+              type: "AUDIT",
+              title: `Action système : ${al.action}`,
+              description: `Entité : ${al.entity} #${al.entity_id || ""} ${al.actor_name ? `par ${al.actor_name}` : ""} ${al.ip_address ? `(IP : ${al.ip_address})` : ""}`,
+              badge: "Audit Système",
+              status: "default",
+              timestamp: new Date(al.created_at).toISOString(),
+              metadata: al.details || {}
+            });
+          });
+
+          // Coach courses
+          coachCourses.forEach((cc) => {
+            timeline.push({
+              id: `coach-course-${cc.id}`,
+              type: "COACH_COURSE",
+              title: `Formation publiée : ${cc.title}`,
+              description: `Catégorie : ${cc.category} · Prix : ${cc.price} DZD · Apprenantes inscrites : ${cc.student_count}`,
+              badge: "Pédagogie",
+              status: "success",
+              timestamp: new Date(cc.created_at).toISOString(),
+              metadata: { courseId: cc.id, studentCount: cc.student_count }
+            });
+          });
+
+          // Coach payouts
+          coachPayouts.forEach((po) => {
+            timeline.push({
+              id: `payout-${po.id}`,
+              type: "PAYOUT",
+              title: `Versement formateur #${po.id} : ${Number(po.amount).toLocaleString("fr-FR")} DZD`,
+              description: `Statut : ${po.status} · Réf : ${po.reference_number || "En traitement"} · Notes : ${po.notes || "N/A"}`,
+              badge: "Finances",
+              status: po.status === "completed" ? "success" : po.status === "rejected" ? "error" : "warning",
+              timestamp: new Date(po.created_at).toISOString(),
+              metadata: { payoutId: po.id, amount: po.amount, status: po.status }
+            });
+          });
+
+          // Sort timeline chronologically (latest first)
+          timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+          // Aggregate statistics
+          const totalSpent = purchases.filter(p => p.status === "approved").reduce((sum, p) => sum + Number(p.amount || 0), 0);
+          const totalEarnings = coachPayouts.filter(p => p.status === "completed").reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+          return jsonResponse({
+            user: {
+              id: targetUser.id,
+              name: targetUser.name,
+              email: targetUser.email,
+              role: targetUser.role,
+              isApproved: targetUser.is_approved,
+              phone: targetUser.phone,
+              bio: targetUser.bio,
+              domain: targetUser.domain,
+              avatarUrl: targetUser.avatar_url,
+              centerId: targetUser.center_id,
+              centerName: targetUser.center_name,
+              centerAddress: targetUser.center_address,
+              diplomas: targetUser.diplomas || [],
+              priorTrainings: targetUser.prior_trainings || [],
+              interests: targetUser.interests || [],
+              teachingPlan: targetUser.teaching_plan,
+              createdAt: targetUser.created_at ? new Date(targetUser.created_at).toISOString() : new Date().toISOString(),
+            },
+            stats: {
+              totalPurchases: purchases.length,
+              approvedPurchases: purchases.filter(p => p.status === "approved").length,
+              totalSpent: totalSpent.toString(),
+              totalEnrollments: enrollments.length,
+              completedLessons: progressRows.filter(p => p.is_completed).length,
+              totalExamAttempts: examAttempts.length,
+              certificatesEarned: certificates.length,
+              ticketsCount: tickets.length,
+              reviewsCount: reviews.length,
+              commentsCount: comments.length,
+              auditLogsCount: auditLogs.length,
+              coursesCreated: coachCourses.length,
+              totalEarnings: totalEarnings.toString(),
+            },
+            timeline,
+            purchases,
+            enrollments,
+            progress: progressRows,
+            examAttempts,
+            certificates,
+            tickets,
+            reviews,
+            comments,
+            auditLogs,
+            coachData: {
+              courses: coachCourses,
+              payouts: coachPayouts,
+              priceRequests: coachPriceRequests,
+            }
+          });
+        }
+
         // GET /api/admin/invoices
         if (url.pathname === "/api/admin/invoices" && request.method === "GET") {
           const user = await getAuthUser(request);
