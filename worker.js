@@ -1935,6 +1935,186 @@ export default {
           return jsonResponse(updated[0]);
         }
 
+        // GET /api/admin/courses/:id/attendance
+        const adminCourseAttMatch = url.pathname.match(/^\/api\/admin\/courses\/(\d+)\/attendance$/);
+        if (adminCourseAttMatch && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const courseId = parseInt(adminCourseAttMatch[1]);
+
+          // 1. Fetch course details with coach info
+          const courseRows = await queryNeon(`
+            SELECT c.*, u.id as coach_id, u.name as coach_name, u.email as coach_email, u.avatar_url as coach_avatar, u.phone as coach_phone
+            FROM courses c
+            INNER JOIN users u ON c.coach_id = u.id
+            WHERE c.id = $1 LIMIT 1;
+          `, [courseId]);
+          if (courseRows.length === 0) return jsonResponse({ error: "Formation introuvable" }, 404);
+          const c = courseRows[0];
+
+          // 2. Fetch chapters and lessons
+          const chapters = await queryNeon(`
+            SELECT id, title, description, "order"
+            FROM chapters
+            WHERE course_id = $1
+            ORDER BY "order" ASC, id ASC;
+          `, [courseId]);
+
+          const lessons = await queryNeon(`
+            SELECT id, chapter_id as "chapterId", title, description, "order", duration_minutes as "durationMinutes",
+                   type, video_url as "videoUrl", pdf_url as "pdfUrl", quiz_data as "quizData"
+            FROM lessons
+            WHERE course_id = $1
+            ORDER BY "order" ASC, id ASC;
+          `, [courseId]);
+
+          const totalLessonsCount = lessons.length;
+
+          // 3. Fetch all enrolled students with progress
+          const studentsRaw = await queryNeon(`
+            SELECT 
+              u.id as user_id,
+              u.name,
+              u.email,
+              u.phone,
+              u.avatar_url as avatar_url,
+              e.enrolled_at,
+              COUNT(DISTINCT CASE WHEN p.is_completed = true THEN p.lesson_id END)::int as completed_lessons,
+              MAX(p.updated_at) as last_activity_at,
+              ARRAY_AGG(DISTINCT CASE WHEN p.is_completed = true THEN p.lesson_id END) FILTER (WHERE p.is_completed = true) as completed_lesson_ids
+            FROM enrollments e
+            JOIN users u ON e.user_id = u.id
+            LEFT JOIN lessons l ON l.course_id = e.course_id
+            LEFT JOIN progress p ON p.lesson_id = l.id AND p.user_id = e.user_id
+            WHERE e.course_id = $1
+            GROUP BY u.id, u.name, u.email, u.phone, u.avatar_url, e.enrolled_at
+            ORDER BY completed_lessons DESC, e.enrolled_at ASC;
+          `, [courseId]);
+
+          // 4. Fetch exam attempts
+          const examAttempts = await queryNeon(`
+            SELECT user_id, score, passed, attempted_at
+            FROM exam_attempts
+            WHERE course_id = $1
+            ORDER BY attempted_at DESC;
+          `, [courseId]);
+
+          // 5. Fetch certificates
+          const certificates = await queryNeon(`
+            SELECT user_id, certificate_code, issued_at, exam_score
+            FROM certificates
+            WHERE course_id = $1;
+          `, [courseId]);
+
+          const now = new Date();
+          const students = studentsRaw.map((s) => {
+            const completedCount = Number(s.completed_lessons || 0);
+            const progressPercent = totalLessonsCount > 0 ? Math.min(100, Math.round((completedCount / totalLessonsCount) * 100)) : 0;
+            const lastActive = s.last_activity_at ? new Date(s.last_activity_at) : null;
+            const daysSinceActive = lastActive ? Math.floor((now.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+            const exam = examAttempts.find((ea) => ea.user_id === s.user_id) || null;
+            const cert = certificates.find((cr) => cr.user_id === s.user_id) || null;
+
+            let attendanceStatus = "never_started";
+            if (completedCount >= totalLessonsCount && totalLessonsCount > 0) {
+              attendanceStatus = "completed";
+            } else if (completedCount > 0) {
+              if (daysSinceActive !== null && daysSinceActive > 14) {
+                attendanceStatus = "at_risk";
+              } else {
+                attendanceStatus = "active";
+              }
+            }
+
+            return {
+              userId: s.user_id,
+              name: s.name,
+              email: s.email,
+              phone: s.phone || null,
+              avatarUrl: s.avatar_url || null,
+              enrolledAt: s.enrolled_at ? new Date(s.enrolled_at).toISOString() : null,
+              completedLessonsCount: completedCount,
+              totalLessonsCount,
+              progressPercent,
+              attendanceStatus,
+              lastActivityAt: lastActive ? lastActive.toISOString() : null,
+              completedLessonIds: s.completed_lesson_ids || [],
+              examAttempt: exam ? {
+                score: exam.score,
+                passed: exam.passed,
+                attemptedAt: exam.attempted_at ? new Date(exam.attempted_at).toISOString() : null
+              } : null,
+              certificate: cert ? {
+                certificateCode: cert.certificate_code,
+                issuedAt: cert.issued_at ? new Date(cert.issued_at).toISOString() : null,
+                examScore: cert.exam_score
+              } : null
+            };
+          });
+
+          const totalEnrolled = students.length;
+          const completedCount = students.filter(s => s.attendanceStatus === "completed").length;
+          const activeCount = students.filter(s => s.attendanceStatus === "active").length;
+          const atRiskCount = students.filter(s => s.attendanceStatus === "at_risk").length;
+          const neverStartedCount = students.filter(s => s.attendanceStatus === "never_started").length;
+          const attendedCount = totalEnrolled - neverStartedCount;
+          const certifiedCount = students.filter(s => !!s.certificate).length;
+          const avgProgress = totalEnrolled > 0
+            ? Math.round(students.reduce((acc, s) => acc + s.progressPercent, 0) / totalEnrolled)
+            : 0;
+
+          return jsonResponse({
+            course: {
+              id: c.id,
+              title: c.title,
+              subtitle: c.subtitle || null,
+              description: c.description || null,
+              category: c.category,
+              level: c.level,
+              price: c.price,
+              currency: c.currency || "DZD",
+              isFree: c.is_free,
+              isPublished: c.is_published,
+              durationHours: c.duration_hours,
+              imageUrl: c.image_url,
+              promoVideoUrl: c.promo_video_url || null,
+              faq: c.faq || [],
+              learningObjectives: c.learning_objectives || [],
+              requirements: c.requirements || [],
+              targetAudience: c.target_audience || [],
+              tags: c.tags || [],
+              hasFinalExam: c.has_final_exam,
+              finalExam: c.final_exam || null,
+              coach: {
+                id: c.coach_id,
+                name: c.coach_name,
+                email: c.coach_email,
+                avatarUrl: c.coach_avatar,
+                phone: c.coach_phone
+              }
+            },
+            curriculum: {
+              chapters,
+              lessons,
+              totalChaptersCount: chapters.length,
+              totalLessonsCount
+            },
+            analytics: {
+              totalEnrolled,
+              attendedCount,
+              neverStartedCount,
+              activeCount,
+              atRiskCount,
+              completedCount,
+              certifiedCount,
+              averageProgressPercent: avgProgress,
+              attendanceRatePercent: totalEnrolled > 0 ? Math.round((attendedCount / totalEnrolled) * 100) : 0
+            },
+            students
+          });
+        }
+
         // GET /api/admin/users
         if (url.pathname === "/api/admin/users" && request.method === "GET") {
           const user = await getAuthUser(request);
