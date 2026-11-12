@@ -52,13 +52,15 @@ export default function AdminTicketsPage() {
   const [saving, setSaving] = useState<number | null>(null);
 
   const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
-  const token = localStorage.getItem("auth_token");
-  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const getHeaders = () => {
+    const token = localStorage.getItem("auth_token") || localStorage.getItem("tamayuz_token") || localStorage.getItem("token");
+    return { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  };
 
   const fetchTickets = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${BASE}/api/admin/tickets`, { headers });
+      const r = await fetch(`${BASE}/api/admin/tickets`, { headers: getHeaders() });
       const data = await r.json();
       setTickets(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -76,7 +78,7 @@ export default function AdminTicketsPage() {
   const updateTicket = async (id: number, body: Record<string, unknown>) => {
     setSaving(id);
     try {
-      const r = await fetch(`${BASE}/api/admin/tickets/${id}`, { method: "PATCH", headers, body: JSON.stringify(body) });
+      const r = await fetch(`${BASE}/api/admin/tickets/${id}`, { method: "PATCH", headers: getHeaders(), body: JSON.stringify(body) });
       if (r.ok) {
         toast({
           title: {
