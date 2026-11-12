@@ -1874,6 +1874,178 @@ export default {
           return jsonResponse(formatUser(updated[0]));
         }
 
+        // GET /api/admin/coaches/:id/dossier
+        const coachDossierMatch = url.pathname.match(/^\/api\/admin\/coaches\/(\d+)\/dossier$/);
+        if (coachDossierMatch && request.method === "GET") {
+          const user = await getAuthUser(request);
+          if (!user || user.role !== "admin") return jsonResponse({ error: "Non autorisé" }, 403);
+          const coachId = parseInt(coachDossierMatch[1]);
+
+          const coachRows = await queryNeon("SELECT * FROM users WHERE id = $1 AND role = 'coach' LIMIT 1;", [coachId]);
+          if (coachRows.length === 0) return jsonResponse({ error: "Formateur introuvable" }, 404);
+          const coach = coachRows[0];
+
+          // 1. Fetch courses uploaded by this coach
+          const coursesRaw = await queryNeon(`
+            SELECT c.*,
+                   COUNT(DISTINCT e.id)::int as enrollment_count,
+                   COUNT(DISTINCT l.id)::int as lessons_count,
+                   COUNT(DISTINCT ch.id)::int as chapters_count,
+                   COALESCE(SUM(p.amount) FILTER (WHERE p.status = 'paid'), 0)::text as revenue_generated
+            FROM courses c
+            LEFT JOIN enrollments e ON e.course_id = c.id
+            LEFT JOIN lessons l ON l.course_id = c.id
+            LEFT JOIN chapters ch ON ch.course_id = c.id
+            LEFT JOIN purchases p ON p.course_id = c.id
+            WHERE c.coach_id = $1
+            GROUP BY c.id
+            ORDER BY c.created_at DESC;
+          `, [coachId]);
+
+          const courses = coursesRaw.map((c) => ({
+            id: c.id,
+            title: c.title,
+            subtitle: c.subtitle || null,
+            category: c.category,
+            level: c.level,
+            price: c.price,
+            currency: c.currency || "DZD",
+            isFree: c.is_free,
+            isPublished: c.is_published,
+            imageUrl: c.image_url,
+            durationHours: c.duration_hours,
+            enrollmentCount: Number(c.enrollment_count || 0),
+            lessonsCount: Number(c.lessons_count || 0),
+            chaptersCount: Number(c.chapters_count || 0),
+            revenueGenerated: parseFloat(c.revenue_generated || "0"),
+            createdAt: c.created_at ? new Date(c.created_at).toISOString() : null,
+          }));
+
+          // 2. Fetch full chronological activity log
+          const auditLogs = await queryNeon(`
+            SELECT al.id, al.action, al.entity, al.entity_id, al.details, al.created_at,
+                   u.name as actor_name
+            FROM audit_logs al
+            LEFT JOIN users u ON u.id = al.user_id
+            WHERE al.user_id = $1 OR (al.entity = 'user' AND al.entity_id = $1)
+            ORDER BY al.created_at DESC
+            LIMIT 50;
+          `, [coachId]);
+
+          const activities = auditLogs.map((log) => ({
+            id: `audit-${log.id}`,
+            action: log.action,
+            entity: log.entity,
+            entityId: log.entity_id,
+            details: log.details,
+            actorName: log.actor_name,
+            timestamp: log.created_at ? new Date(log.created_at).toISOString() : new Date().toISOString(),
+          }));
+
+          for (const c of courses) {
+            if (c.createdAt) {
+              activities.push({
+                id: `course-${c.id}`,
+                action: c.isPublished ? "PUBLISH_COURSE" : "CREATE_COURSE",
+                entity: "course",
+                entityId: c.id,
+                details: { title: c.title, category: c.category, price: `${c.price} ${c.currency}` },
+                actorName: coach.name,
+                timestamp: c.createdAt,
+              });
+            }
+          }
+
+          activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+          // 3. Fetch students / cohorts taught
+          const studentsTaught = await queryNeon(`
+            SELECT DISTINCT ON (u.id, c.id)
+              u.id as student_id,
+              u.name as student_name,
+              u.email as student_email,
+              u.avatar_url as student_avatar,
+              c.id as course_id,
+              c.title as course_title,
+              e.enrolled_at,
+              COUNT(DISTINCT CASE WHEN p.is_completed = true THEN p.lesson_id END)::int as completed_lessons,
+              (SELECT COUNT(*)::int FROM lessons WHERE course_id = c.id) as total_lessons
+            FROM enrollments e
+            JOIN courses c ON c.id = e.course_id
+            JOIN users u ON u.id = e.user_id
+            LEFT JOIN progress p ON p.lesson_id IN (SELECT id FROM lessons WHERE course_id = c.id) AND p.user_id = u.id
+            WHERE c.coach_id = $1
+            GROUP BY u.id, u.name, u.email, u.avatar_url, c.id, c.title, e.enrolled_at
+            ORDER BY u.id, c.id, e.enrolled_at DESC;
+          `, [coachId]);
+
+          const cohorts = studentsTaught.map((s) => {
+            const comp = Number(s.completed_lessons || 0);
+            const tot = Number(s.total_lessons || 0);
+            return {
+              studentId: s.student_id,
+              name: s.student_name,
+              email: s.student_email,
+              avatarUrl: s.student_avatar,
+              courseId: s.course_id,
+              courseTitle: s.course_title,
+              enrolledAt: s.enrolled_at ? new Date(s.enrolled_at).toISOString() : null,
+              completedLessons: comp,
+              totalLessons: tot,
+              progressPercent: tot > 0 ? Math.min(100, Math.round((comp / tot) * 100)) : 0,
+              isCompleted: tot > 0 && comp >= tot,
+            };
+          });
+
+          // 4. Financials & Payouts
+          const [commRow] = await queryNeon(`
+            SELECT 
+              COALESCE(SUM(amount), 0)::text as total,
+              COALESCE(SUM(CASE WHEN is_paid = true THEN amount ELSE 0 END), 0)::text as paid
+            FROM commissions 
+            WHERE coach_id = $1;
+          `, [coachId]);
+
+          const totalComms = parseFloat(commRow?.total ?? "0");
+          const paidComms = parseFloat(commRow?.paid ?? "0");
+
+          const payouts = await queryNeon(`
+            SELECT * FROM payouts WHERE coach_id = $1 ORDER BY created_at DESC;
+          `, [coachId]);
+
+          return jsonResponse({
+            coach: {
+              ...formatUser(coach),
+              domain: coach.domain,
+              teachingPlan: coach.teaching_plan,
+              diplomas: coach.diplomas || [],
+            },
+            stats: {
+              totalCourses: courses.length,
+              publishedCourses: courses.filter(c => c.isPublished).length,
+              totalLessons: courses.reduce((acc, c) => acc + c.lessonsCount, 0),
+              totalStudents: cohorts.length,
+              totalCommissions: totalComms,
+              paidCommissions: paidComms,
+              pendingCommissions: Math.max(0, totalComms - paidComms),
+            },
+            courses,
+            activities,
+            cohorts,
+            payouts: payouts.map((p) => ({
+              id: p.id,
+              amount: p.amount,
+              currency: p.currency || "DZD",
+              status: p.status,
+              paymentMethod: p.payment_method,
+              referenceNumber: p.reference_number,
+              notes: p.notes,
+              createdAt: p.created_at ? new Date(p.created_at).toISOString() : null,
+              processedAt: p.processed_at ? new Date(p.processed_at).toISOString() : null,
+            })),
+          });
+        }
+
         // GET /api/admin/courses
         if (url.pathname === "/api/admin/courses" && request.method === "GET") {
           const user = await getAuthUser(request);
