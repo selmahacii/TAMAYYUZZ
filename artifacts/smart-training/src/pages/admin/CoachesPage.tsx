@@ -871,6 +871,75 @@ export default function AdminCoachesPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* Price requests if any */}
+                        {coachDossier?.priceRequests && coachDossier.priceRequests.length > 0 && (
+                          <div className="space-y-3 pt-4 border-t border-border">
+                            <h4 className="font-bold text-foreground text-xs uppercase tracking-wider flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <DollarSign className="w-3.5 h-3.5 text-neutral-600" />
+                                Demandes de révision tarifaire ({coachDossier.priceRequests.length})
+                              </span>
+                              <span className="text-[11px] text-muted-foreground font-normal">Arbitrage Superadmin</span>
+                            </h4>
+                            <div className="space-y-2">
+                              {coachDossier.priceRequests.map((pr: any) => (
+                                <div key={pr.id} className="p-3.5 bg-neutral-50 border border-border rounded-xl flex items-start justify-between gap-3 text-xs">
+                                  <div>
+                                    <div className="font-bold text-foreground">{pr.courseTitle}</div>
+                                    <div className="flex items-center gap-2 mt-1 text-muted-foreground text-[11px]">
+                                      <span>Tarif actuel : <strong className="text-foreground">{pr.currentPrice} {pr.currency}</strong></span>
+                                      <span>→</span>
+                                      <span>Tarif sollicité : <strong className="text-foreground">{pr.requestedPrice} {pr.currency}</strong></span>
+                                    </div>
+                                    {pr.justification && (
+                                      <p className="mt-1.5 text-[11px] text-neutral-700 italic bg-white p-2 rounded border border-border/80">
+                                        "{pr.justification}"
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      pr.status === "approved"
+                                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                        : pr.status === "rejected"
+                                        ? "bg-rose-50 text-rose-800 border border-rose-200"
+                                        : "bg-amber-50 text-amber-800 border border-amber-200"
+                                    }`}>
+                                      {pr.status === "approved" ? "Approuvé" : pr.status === "rejected" ? "Refusé" : "En cours d'examen"}
+                                    </span>
+                                    <div className="text-[10px] text-muted-foreground mt-1">
+                                      {pr.createdAt ? new Date(pr.createdAt).toLocaleDateString("fr-FR") : ""}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Announcements if any */}
+                        {coachDossier?.announcements && coachDossier.announcements.length > 0 && (
+                          <div className="space-y-3 pt-4 border-t border-border">
+                            <h4 className="font-bold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
+                              <BookOpen className="w-3.5 h-3.5 text-neutral-600" />
+                              Annonces pédagogiques publiées par le formateur ({coachDossier.announcements.length})
+                            </h4>
+                            <div className="space-y-2">
+                              {coachDossier.announcements.map((an: any) => (
+                                <div key={an.id} className="p-3.5 bg-neutral-50 border border-border rounded-xl text-xs space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <div className="font-bold text-foreground">{an.title}</div>
+                                    <div className="text-[10px] text-muted-foreground">
+                                      {an.createdAt ? new Date(an.createdAt).toLocaleDateString("fr-FR") : ""}
+                                    </div>
+                                  </div>
+                                  <p className="text-muted-foreground text-xs leading-relaxed">{an.content}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1205,6 +1274,65 @@ export default function AdminCoachesPage() {
                             </div>
                           )}
                         </div>
+
+                        {/* Granular Commissions Ledger */}
+                        {coachDossier?.commissionsList && coachDossier.commissionsList.length > 0 && (
+                          <div className="space-y-3 pt-4 border-t border-border">
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-bold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                <DollarSign className="w-3.5 h-3.5 text-neutral-600" />
+                                Relevé granulaire des commissions par inscription ({coachDossier.commissionsList.length})
+                              </h4>
+                              <span className="text-[11px] text-muted-foreground font-mono">
+                                Total généré : {parseFloat(String(coachDossier.stats?.totalCommissions || 0)).toLocaleString("fr-DZ")} DZD
+                              </span>
+                            </div>
+
+                            <div className="bg-white border border-border rounded-xl overflow-hidden shadow-2xs">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                  <thead className="bg-neutral-50 border-b border-border text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                    <tr>
+                                      <th className="p-3">Formation</th>
+                                      <th className="p-3">Apprenante</th>
+                                      <th className="p-3">Date</th>
+                                      <th className="p-3">Taux appliqué</th>
+                                      <th className="p-3">Montant perçu</th>
+                                      <th className="p-3">Statut versement</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-border">
+                                    {coachDossier.commissionsList.map((cm: any) => (
+                                      <tr key={cm.id} className="hover:bg-neutral-50/60 transition-colors">
+                                        <td className="p-3 font-semibold text-foreground">{cm.courseTitle}</td>
+                                        <td className="p-3 text-muted-foreground">
+                                          <div className="font-medium text-foreground">{cm.studentName || "Étudiante"}</div>
+                                          <div className="text-[10px] text-neutral-400">{cm.studentEmail}</div>
+                                        </td>
+                                        <td className="p-3 text-muted-foreground whitespace-nowrap">
+                                          {cm.createdAt ? new Date(cm.createdAt).toLocaleDateString("fr-FR") : "N/A"}
+                                        </td>
+                                        <td className="p-3 font-mono font-bold text-neutral-700">{cm.ratePercent}%</td>
+                                        <td className="p-3 font-mono font-bold text-emerald-800">
+                                          +{parseFloat(String(cm.amount)).toLocaleString("fr-DZ")} {cm.currency}
+                                        </td>
+                                        <td className="p-3 whitespace-nowrap">
+                                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                            cm.isPaid
+                                              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                                              : "bg-amber-50 text-amber-800 border border-amber-200"
+                                          }`}>
+                                            {cm.isPaid ? "Payé (Versé)" : "En attente de versement"}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </>

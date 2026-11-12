@@ -1921,7 +1921,7 @@ export default {
             createdAt: c.created_at ? new Date(c.created_at).toISOString() : null,
           }));
 
-          // 2. Fetch full chronological activity log
+          // 2. Fetch full chronological activity log from audit_logs
           const auditLogs = await queryNeon(`
             SELECT al.id, al.action, al.entity, al.entity_id, al.details, al.created_at,
                    u.name as actor_name
@@ -1932,6 +1932,41 @@ export default {
             LIMIT 50;
           `, [coachId]);
 
+          // 3. Fetch price requests submitted by this coach
+          const priceReqsRaw = await queryNeon(`
+            SELECT pr.*, c.title as course_title
+            FROM price_requests pr
+            LEFT JOIN courses c ON c.id = pr.course_id
+            WHERE pr.coach_id = $1
+            ORDER BY pr.created_at DESC;
+          `, [coachId]);
+
+          // 4. Fetch granular commissions ledger
+          const commissionsRaw = await queryNeon(`
+            SELECT cm.*, c.title as course_title, u.name as student_name, u.email as student_email
+            FROM commissions cm
+            LEFT JOIN courses c ON c.id = cm.course_id
+            LEFT JOIN purchases p ON p.id = cm.purchase_id
+            LEFT JOIN users u ON u.id = p.user_id
+            WHERE cm.coach_id = $1
+            ORDER BY cm.created_at DESC;
+          `, [coachId]);
+
+          // 5. Fetch announcements authored by this coach
+          const announcementsRaw = await queryNeon(`
+            SELECT * FROM announcements WHERE author_id = $1 ORDER BY created_at DESC;
+          `, [coachId]);
+
+          // 6. Fetch all lessons created across coach's courses
+          const lessonsRaw = await queryNeon(`
+            SELECT l.id, l.title, l.type, l.duration_minutes as "durationMinutes", l.created_at, c.title as course_title
+            FROM lessons l
+            JOIN courses c ON c.id = l.course_id
+            WHERE c.coach_id = $1
+            ORDER BY l.created_at DESC;
+          `, [coachId]);
+
+          // 7. Assemble 100% unified chronological activity timeline
           const activities = auditLogs.map((log) => ({
             id: `audit-${log.id}`,
             action: log.action,
@@ -1956,6 +1991,67 @@ export default {
             }
           }
 
+          for (const pr of priceReqsRaw) {
+            activities.push({
+              id: `price-req-${pr.id}`,
+              action: "PRICE_REQUEST_SUBMITTED",
+              entity: "course",
+              entityId: pr.course_id,
+              details: {
+                courseTitle: pr.course_title,
+                currentPrice: `${parseFloat(pr.current_price || 0)} DZD`,
+                requestedPrice: `${parseFloat(pr.requested_price || 0)} DZD`,
+                justification: pr.justification,
+                status: pr.status
+              },
+              actorName: coach.name,
+              timestamp: pr.created_at ? new Date(pr.created_at).toISOString() : new Date().toISOString(),
+            });
+          }
+
+          for (const cm of commissionsRaw) {
+            activities.push({
+              id: `commission-${cm.id}`,
+              action: "COMMISSION_EARNED",
+              entity: "commission",
+              entityId: cm.id,
+              details: {
+                student: cm.student_name,
+                courseTitle: cm.course_title,
+                amount: `${parseFloat(cm.amount || 0)} ${cm.currency || 'DZD'}`,
+                ratePercent: `${cm.rate_percent || 70}%`,
+                isPaid: cm.is_paid
+              },
+              actorName: "Système de Vente",
+              timestamp: cm.created_at ? new Date(cm.created_at).toISOString() : new Date().toISOString(),
+            });
+          }
+
+          for (const an of announcementsRaw) {
+            activities.push({
+              id: `announcement-${an.id}`,
+              action: "ANNOUNCEMENT_POSTED",
+              entity: "announcement",
+              entityId: an.id,
+              details: { title: an.title, content: an.content?.slice(0, 120) },
+              actorName: coach.name,
+              timestamp: an.created_at ? new Date(an.created_at).toISOString() : new Date().toISOString(),
+            });
+          }
+
+          for (const ls of lessonsRaw) {
+            activities.push({
+              id: `lesson-${ls.id}`,
+              action: "LESSON_UPLOADED",
+              entity: "lesson",
+              entityId: ls.id,
+              details: { title: ls.title, type: ls.type, courseTitle: ls.course_title, duration: `${ls.durationMinutes || 0} min` },
+              actorName: coach.name,
+              timestamp: ls.created_at ? new Date(ls.created_at).toISOString() : new Date().toISOString(),
+            });
+          }
+
+          // Sort activities newest first
           activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
           // 3. Fetch students / cohorts taught
@@ -2032,6 +2128,45 @@ export default {
             courses,
             activities,
             cohorts,
+            priceRequests: priceReqsRaw.map((pr) => ({
+              id: pr.id,
+              courseId: pr.course_id,
+              courseTitle: pr.course_title,
+              currentPrice: parseFloat(pr.current_price || 0),
+              requestedPrice: parseFloat(pr.requested_price || 0),
+              currency: pr.currency || "DZD",
+              justification: pr.justification,
+              status: pr.status,
+              createdAt: pr.created_at ? new Date(pr.created_at).toISOString() : null,
+              resolvedAt: pr.resolved_at ? new Date(pr.resolved_at).toISOString() : null,
+            })),
+            commissionsList: commissionsRaw.map((cm) => ({
+              id: cm.id,
+              courseTitle: cm.course_title,
+              studentName: cm.student_name,
+              studentEmail: cm.student_email,
+              amount: parseFloat(cm.amount || 0),
+              currency: cm.currency || "DZD",
+              ratePercent: parseFloat(cm.rate_percent || 70),
+              status: cm.status,
+              isPaid: cm.is_paid,
+              createdAt: cm.created_at ? new Date(cm.created_at).toISOString() : null,
+            })),
+            announcements: announcementsRaw.map((an) => ({
+              id: an.id,
+              title: an.title,
+              content: an.content,
+              isPinned: an.is_pinned,
+              createdAt: an.created_at ? new Date(an.created_at).toISOString() : null,
+            })),
+            lessonsList: lessonsRaw.map((ls) => ({
+              id: ls.id,
+              title: ls.title,
+              type: ls.type,
+              durationMinutes: ls.durationMinutes,
+              courseTitle: ls.course_title,
+              createdAt: ls.created_at ? new Date(ls.created_at).toISOString() : null,
+            })),
             payouts: payouts.map((p) => ({
               id: p.id,
               amount: p.amount,
