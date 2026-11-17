@@ -5,265 +5,247 @@ import { useI18n } from "@/i18n";
 import {
   Home, Compass, GraduationCap, Award, Wallet,
   UserCircle, ChevronDown, ChevronRight, LogOut, Menu, X, LifeBuoy, HelpCircle,
+  Search, Bell, User, BookOpen, Layers, Users, Headphones
 } from "lucide-react";
-import { LogoMark } from "@/components/shared/LogoMark";
+import { TamayuzDigitalLogo } from "@/components/shared/TamayuzDigitalLogo";
 import { NotificationBell } from "@/components/shared/NotificationBell";
-
-interface NavItem {
-  key: string;
-  href: string;
-  icon: ReactNode;
-}
-
-interface NavSection {
-  key: string;
-  labelKey: string;
-  items: NavItem[];
-}
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 
 interface StudentLayoutProps {
   children: ReactNode;
   title?: string;
   subtitle?: string;
+  hideSidebar?: boolean;
 }
 
-export function StudentLayout({ children, title, subtitle }: StudentLayoutProps) {
+export function StudentLayout({ children, title, subtitle, hideSidebar = false }: StudentLayoutProps) {
   const { user, logout } = useAuth();
-  const { t, lang, setLang, isRTL } = useI18n();
-  const [location] = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    principal: true, learning: true, account: true,
-  });
+  const { lang, setLang, isRTL } = useI18n();
+  const [location, setLocation] = useLocation();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const isActive = (href: string) => location === href || location.startsWith(href + "/");
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setLocation(`/student/courses?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
-  const sections: NavSection[] = [
-    {
-      key: "principal",
-      labelKey: t("student.section.principal"),
-      items: [
-        { key: "dashboard", href: "/student/home", icon: <Home className="w-4 h-4" /> },
-        { key: "courses", href: "/student/courses", icon: <Compass className="w-4 h-4" /> },
-      ],
-    },
-    {
-      key: "learning",
-      labelKey: t("student.section.learning"),
-      items: [
-        { key: "my_courses", href: "/student/my-courses", icon: <GraduationCap className="w-4 h-4" /> },
-        { key: "certificates", href: "/student/certificates", icon: <Award className="w-4 h-4" /> },
-        { key: "purchases", href: "/student/purchases", icon: <Wallet className="w-4 h-4" /> },
-      ],
-    },
-    {
-      key: "account",
-      labelKey: t("student.section.account"),
-      items: [
-        { key: "support", href: "/student/support", icon: <LifeBuoy className="w-4 h-4" /> },
-        { key: "help", href: "/help", icon: <HelpCircle className="w-4 h-4" /> },
-        { key: "profile", href: "/student/profile", icon: <UserCircle className="w-4 h-4" /> },
-      ],
-    },
+  const navLinks = [
+    { key: "home", label: { ar: "الرئيسية", fr: "Accueil", en: "Home" }[lang], href: "/student/home" },
+    { key: "sections", label: { ar: "الأقسام", fr: "Sections", en: "Categories" }[lang], href: "/student/courses" },
+    { key: "coaches", label: { ar: "المدربون والخبراء", fr: "Formateurs & Experts", en: "Coaches & Experts" }[lang], href: "/student/courses" },
+    { key: "ebooks", label: { ar: "الكتب الرقمية", fr: "Livres Numériques", en: "E-Books" }[lang], href: "/student/courses" },
+    { key: "library", label: { ar: "المكتبة", fr: "Bibliothèque", en: "Library" }[lang], href: "/student/courses" },
+    { key: "about", label: { ar: "عن المنصة", fr: "À propos", en: "About Us" }[lang], href: "/help" },
+    { key: "support", label: { ar: "الدعم والمساعدة", fr: "Support & Aide", en: "Support" }[lang], href: "/student/support" },
   ];
 
-  const navLabel = (key: string): string => {
-    const map: Record<string, string> = {
-      dashboard: t("student.dashboard"),
-      courses: { ar: "الدورات المتاحة", fr: "Catalogue des formations", en: "Explore Courses" }[lang] ?? "Formations",
-      my_courses: t("student.my_courses"),
-      certificates: t("student.certificates"),
-      purchases: t("student.purchases"),
-      support: t("student.support"),
-      help: t("nav.help_center"),
-      profile: t("student.profile"),
-    };
-    return map[key] ?? key;
+  const isLinkActive = (href: string) => {
+    if (href === "/student/home") return location === "/student/home";
+    return location === href || location.startsWith(href + "?");
   };
-
-  const toggleSection = (key: string) => {
-    setExpandedSections((s) => ({ ...s, [key]: !s[key] }));
-  };
-
-  const Sidebar = (
-    <aside
-      className={`flex flex-col h-full transition-all duration-300 bg-white border-r border-border ${collapsed ? "w-16" : "w-64"}`}
-    >
-      {/* Header */}
-      <div className={`flex items-center ${collapsed ? "flex-col gap-3 py-3 px-2" : "justify-between p-4"} border-b border-border`}>
-        <Link href="/student/home">
-          <div className="flex items-center gap-2.5 cursor-pointer">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-white border border-border shadow-xs p-1 overflow-hidden">
-              <LogoMark className="w-full h-full object-contain" />
-            </div>
-            {!collapsed && (
-              <div>
-                <p className="text-foreground text-sm font-black tracking-tight" style={{ fontFamily: "Cairo, sans-serif" }}>Tamayyuz</p>
-                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider">Student Space</p>
-              </div>
-            )}
-          </div>
-        </Link>
-        <button onClick={() => setCollapsed(!collapsed)} className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0">
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-        </button>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 space-y-0.5 px-2">
-        {sections.map((section) => (
-          <div key={section.key} className="mb-2">
-            {!collapsed && (
-              <button
-                onClick={() => toggleSection(section.key)}
-                className="w-full flex items-center justify-between px-2 py-1.5 mb-1 rounded-lg group transition-all hover:bg-muted/50"
-              >
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  {section.labelKey}
-                </span>
-                {expandedSections[section.key]
-                  ? <ChevronDown className="w-3 h-3 text-muted-foreground" />
-                  : <ChevronRight className="w-3 h-3 text-muted-foreground" />
-                }
-              </button>
-            )}
-
-            {(collapsed || expandedSections[section.key]) && section.items.map((item) => {
-              const active = isActive(item.href);
-              return (
-                <Link key={item.key} href={item.href}>
-                  <div
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg mb-0.5 cursor-pointer transition-all group relative ${collapsed ? "justify-center" : ""} ${
-                      active
-                        ? "bg-black text-white font-bold"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
-                    title={collapsed ? navLabel(item.key) : undefined}
-                  >
-                    <span className={`shrink-0 ${active ? "text-white" : "text-muted-foreground group-hover:text-foreground"}`}>
-                      {item.icon}
-                    </span>
-                    {!collapsed && (
-                      <span className="text-xs font-medium flex-1 truncate" style={{ fontFamily: "Cairo, sans-serif" }}>
-                        {navLabel(item.key)}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
-
-      {/* Footer: lang switcher + user */}
-      <div className="p-3 border-t border-border space-y-3">
-        {!collapsed && (
-          <div className="flex items-center gap-1 rounded-lg p-0.5 bg-muted">
-            {(["ar", "fr", "en"] as const).map((l) => (
-              <button key={l} onClick={() => setLang(l)}
-                className={`flex-1 py-1 rounded-md text-xs font-bold uppercase transition-all ${
-                  lang === l
-                    ? "bg-white text-black shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className={`flex items-center gap-2 ${collapsed ? "justify-center" : ""}`}>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 bg-black">
-            {user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() ?? "ST"}
-          </div>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-foreground text-xs font-bold truncate" style={{ fontFamily: "Cairo, sans-serif" }}>{user?.name}</p>
-              <p className="text-muted-foreground text-[10px] uppercase font-bold">{{ ar: "طالبة", fr: "Étudiante", en: "Student" }[lang]}</p>
-            </div>
-          )}
-          {!collapsed && (
-            <button onClick={logout} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all" title={t("nav.logout")}>
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </div>
-    </aside>
-  );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background text-foreground" dir={isRTL ? "rtl" : "ltr"}>
-      {/* Desktop sidebar */}
-      <div className="hidden lg:flex h-full flex-col shrink-0">
-        {Sidebar}
-      </div>
-
-      {/* Mobile sidebar overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
-          <div className="flex h-full flex-col w-64">
-            {Sidebar}
-          </div>
-          <div className="flex-1 bg-black/40" onClick={() => setMobileOpen(false)} />
-        </div>
-      )}
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top bar */}
-        <header className="h-14 flex items-center justify-between px-4 shrink-0 border-b border-border bg-white">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setMobileOpen(true)} className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted">
-              <Menu className="w-4 h-4" />
-            </button>
-            {title && (
-              <div>
-                <h1 className="text-sm font-black text-foreground" style={{ fontFamily: "Cairo, sans-serif" }}>{title}</h1>
-                {subtitle && <p className="text-muted-foreground text-[10px]">{subtitle}</p>}
+    <div className="min-h-screen bg-[#f8faf8] text-foreground flex flex-col font-sans" dir={isRTL ? "rtl" : "ltr"}>
+      {/* Top Navigation Bar: Matching the exact Digital Tamayuz brand */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-neutral-200/80 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-3 sm:gap-6">
+          {/* Right side: Logo & Brand + Desktop Nav links */}
+          <div className="flex items-center gap-6 min-w-0">
+            <Link href="/student/home">
+              <div className="cursor-pointer shrink-0">
+                <TamayuzDigitalLogo />
               </div>
-            )}
+            </Link>
+
+            {/* Desktop Navigation Links */}
+            <nav className="hidden xl:flex items-center gap-1 shrink-0">
+              {navLinks.map((link) => {
+                const active = isLinkActive(link.href);
+                return (
+                  <Link key={link.key} href={link.href}>
+                    <span
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        active
+                          ? "text-[#0c3b2e] bg-[#0c3b2e]/5 border-b-2 border-[#0c3b2e] rounded-b-none"
+                          : "text-neutral-600 hover:text-[#0c3b2e] hover:bg-neutral-50"
+                      }`}
+                      style={{ fontFamily: "Cairo, sans-serif" }}
+                    >
+                      {link.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
 
-          <div className="flex items-center gap-2">
-            <NotificationBell />
-            <div className="flex items-center gap-1 rounded-lg p-0.5 bg-muted lg:hidden">
+          {/* Center/Left Search Bar */}
+          <div className="flex-1 max-w-xs sm:max-w-sm hidden md:block">
+            <form onSubmit={handleSearchSubmit} className="relative">
+              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+              <Input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={{ ar: "ابحث عن دورة، كتاب، أو خبير...", fr: "Rechercher une formation, livre...", en: "Search courses, books, experts..." }[lang]}
+                className="pr-10 pl-4 h-9.5 rounded-full text-xs bg-neutral-100/80 border-neutral-200 text-foreground placeholder:text-neutral-400 focus:bg-white focus:border-[#0c3b2e] shadow-2xs"
+                style={{ fontFamily: "Cairo, sans-serif" }}
+              />
+            </form>
+          </div>
+
+          {/* Left side: Notification bell, User avatar & Language switcher */}
+          <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
+            {/* Language Switcher */}
+            <div className="flex items-center gap-0.5 bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/60 text-[11px] font-bold">
               {(["ar", "fr", "en"] as const).map((l) => (
-                <button key={l} onClick={() => setLang(l)}
-                  className={`px-2 py-0.5 rounded-md text-xs font-bold uppercase ${
-                    lang === l ? "bg-white text-black shadow-sm" : "text-muted-foreground"
-                  }`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-            <div className="hidden lg:flex items-center gap-1 rounded-lg p-0.5 bg-muted">
-              {(["ar", "fr", "en"] as const).map((l) => (
-                <button key={l} onClick={() => setLang(l)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase transition-all ${
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`px-2 py-0.5 rounded-md uppercase transition-all ${
                     lang === l
-                      ? "bg-white text-black shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-white text-[#0c3b2e] shadow-2xs font-extrabold"
+                      : "text-neutral-500 hover:text-neutral-900"
                   }`}
                 >
                   {l}
                 </button>
               ))}
             </div>
-          </div>
-        </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-[#fafafa]">
-          <div className="p-6 max-w-7xl mx-auto">
-            {children}
+            {/* Notification Bell */}
+            <NotificationBell />
+
+            {/* User Profile Avatar & Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 p-1 rounded-full hover:bg-neutral-100 transition-colors focus:outline-none">
+                  <div className="w-9 h-9 rounded-full bg-[#0c3b2e] text-[#d4af37] border-2 border-[#d4af37]/40 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : <User className="w-4 h-4" />}
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="start" className="w-56 bg-white border border-border p-1.5 shadow-xl rounded-xl text-xs">
+                <DropdownMenuLabel className="p-2 border-b border-border">
+                  <div className="font-bold text-foreground text-sm truncate">{user?.name}</div>
+                  <div className="text-[11px] text-muted-foreground font-mono truncate">{user?.email}</div>
+                  <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    {{ ar: "فضاء الطالبة المعتمد", fr: "Espace Étudiante", en: "Student Space" }[lang]}
+                  </span>
+                </DropdownMenuLabel>
+
+                <div className="py-1">
+                  <DropdownMenuItem asChild>
+                    <Link href="/student/profile" className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-neutral-50 font-medium">
+                      <UserCircle className="w-4 h-4 text-neutral-600" />
+                      {{ ar: "الملف الشخصي", fr: "Mon Profil", en: "My Profile" }[lang]}
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link href="/student/my-courses" className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-neutral-50 font-medium">
+                      <GraduationCap className="w-4 h-4 text-neutral-600" />
+                      {{ ar: "دوراتي التعليمية", fr: "Mes Formations", en: "My Courses" }[lang]}
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link href="/student/certificates" className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-neutral-50 font-medium">
+                      <Award className="w-4 h-4 text-neutral-600" />
+                      {{ ar: "شهاداتي المعتمدة", fr: "Mes Certificats", en: "My Certificates" }[lang]}
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link href="/student/purchases" className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-neutral-50 font-medium">
+                      <Wallet className="w-4 h-4 text-neutral-600" />
+                      {{ ar: "سجل المدفوعات والفواتير", fr: "Mes Achats & Reçus", en: "My Purchases" }[lang]}
+                    </Link>
+                  </DropdownMenuItem>
+                </div>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem onClick={logout} className="flex items-center gap-2 p-2 rounded-lg cursor-pointer text-rose-600 hover:bg-rose-50 font-bold">
+                  <LogOut className="w-4 h-4" />
+                  {{ ar: "تسجيل الخروج", fr: "Se Déconnecter", en: "Sign Out" }[lang]}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Mobile menu toggle */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="xl:hidden w-8 h-8 rounded-lg flex items-center justify-center text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
-        </main>
-      </div>
+        </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="xl:hidden border-t border-border bg-white px-4 py-3 space-y-2 shadow-lg animate-in slide-in-from-top-2">
+            <form onSubmit={handleSearchSubmit} className="mb-3">
+              <Input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={{ ar: "ابحث عن دورة، كتاب، أو خبير...", fr: "Rechercher...", en: "Search..." }[lang]}
+                className="h-9 text-xs rounded-lg bg-neutral-50"
+              />
+            </form>
+            <div className="grid grid-cols-2 gap-1 text-xs">
+              {navLinks.map((link) => (
+                <Link key={link.key} href={link.href} onClick={() => setMobileMenuOpen(false)}>
+                  <div className={`p-2.5 rounded-lg font-bold cursor-pointer ${
+                    isLinkActive(link.href) ? "bg-[#0c3b2e] text-white" : "text-neutral-700 hover:bg-neutral-50"
+                  }`}>
+                    {link.label}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {children}
+      </main>
+
+      {/* Institutional Footer */}
+      <footer className="border-t border-border bg-white mt-12 py-8 text-xs text-muted-foreground">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <TamayuzDigitalLogo className="w-7 h-7" showText={false} />
+            <span className="font-bold text-[#0c3b2e]" style={{ fontFamily: "Cairo, sans-serif" }}>
+              منصة التميز الرقمي © 2026 — جميع الحقوق محفوظة
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px] font-semibold">
+            <Link href="/help" className="hover:text-[#0c3b2e]">مركز المساعدة</Link>
+            <span>·</span>
+            <Link href="/student/support" className="hover:text-[#0c3b2e]">الدعم الفني</Link>
+            <span>·</span>
+            <Link href="/student/courses" className="hover:text-[#0c3b2e]">دليل التخصصات</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
