@@ -10,9 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Star, GraduationCap, Briefcase, ShieldAlert, KeyRound, Clock } from "lucide-react";
+import {
+  Eye, EyeOff, Star, GraduationCap, Award, ShieldCheck, KeyRound,
+  Clock, Mail, Lock, ArrowLeft, ArrowRight, BookOpen, Users, CheckCircle2
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LogoMark } from "@/components/shared/LogoMark";
+import { TamayuzDigitalLogo } from "@/components/shared/TamayuzDigitalLogo";
 
 const schema = z.object({
   email: z.string().email("Adresse email invalide"),
@@ -25,13 +28,31 @@ const testimonials = [
   {
     name: { ar: "أمينة بوزيد", fr: "Amina Bouzid", en: "Amina Bouzid" },
     role: { ar: "رئيسة مشروع، الجزائر العاصمة", fr: "Cheffe de projet, Alger", en: "Project Lead, Algiers" },
-    text: { ar: "منصة تميّز مكّنتني من تطوير مهاراتي في الإدارة خلال ٣ أشهر فقط.", fr: "Tamayyuz m'a permis de développer mes compétences en management en seulement 3 mois.", en: "Tamayyuz helped me develop my management skills in just 3 months." },
+    text: {
+      ar: "منصة التميز مكّنتني من صقل مهاراتي القيادية والإدارية بمنهجية تدريب أكاديمية راقية.",
+      fr: "Tamayuz m'a permis de développer mes compétences managériales avec une rigueur pédagogique remarquable.",
+      en: "Tamayuz enabled me to sharpen my management skills with outstanding academic rigor."
+    },
     stars: 5,
   },
   {
     name: { ar: "سارة مزراق", fr: "Sara Mezraq", en: "Sara Mezraq" },
     role: { ar: "رائدة أعمال، وهران", fr: "Entrepreneuse, Oran", en: "Entrepreneur, Oran" },
-    text: { ar: "الدورات ملائمة للسوق الجزائري. استثمار ممتاز!", fr: "Les formations sont adaptées au marché algérien. Excellent investissement!", en: "The courses are tailored to the Algerian market. Excellent investment!" },
+    text: {
+      ar: "المحتوى الأكاديمي والمدربون على أعلى مستوى. منصة متميزة في خدمة المرأة الجزائرية.",
+      fr: "Le contenu académique et les formateurs sont de tout premier ordre. Une référence pour nos carrières.",
+      en: "The academic content and trainers are top notch. A gold standard for career advancement."
+    },
+    stars: 5,
+  },
+  {
+    name: { ar: "د. هدى بلحاج", fr: "Dr. Houda Belhadj", en: "Dr. Houda Belhadj" },
+    role: { ar: "باحثة جامعية، قسنطينة", fr: "Chercheuse universitaire, Constantine", en: "Academic Researcher, Constantine" },
+    text: {
+      ar: "الدورات مصممة بمعايير علمية وتطبيقات واقعية تسهم بشكل ملموس في التميز والارتقاء.",
+      fr: "Des cours structurés selon les normes universitaires avec des applications professionnelles réelles.",
+      en: "Courses built to university standards with tangible real-world professional applications."
+    },
     stars: 5,
   },
 ];
@@ -59,18 +80,16 @@ export default function LoginPage() {
     if (user) {
       if (user.role === "admin") setLocation("/admin/dashboard");
       else if (user.role === "coach") {
-        if (!user.isApproved) {
-          // Stay on page to show pedagogical pending message
-          return;
-        }
+        if (!user.isApproved) return;
         setLocation("/coach/dashboard");
+      } else {
+        setLocation(redirectTo || "/student/home");
       }
-      else setLocation(redirectTo || "/student/home");
     }
   }, [user, setLocation, redirectTo]);
 
   useEffect(() => {
-    const timer = setInterval(() => setTestimonialIdx((i) => (i + 1) % testimonials.length), 4000);
+    const timer = setInterval(() => setTestimonialIdx((i) => (i + 1) % testimonials.length), 5000);
     return () => clearInterval(timer);
   }, []);
 
@@ -84,11 +103,16 @@ export default function LoginPage() {
       { data: values },
       {
         onSuccess: (data) => setToken(data.token),
-        onError: () => toast({
-          title: { ar: "فشل تسجيل الدخول", fr: "Échec de connexion", en: "Login failed" }[lang],
-          description: { ar: "البريد الإلكتروني أو كلمة المرور غير صحيحة", fr: "Email ou mot de passe incorrect", en: "Incorrect email or password" }[lang],
-          variant: "destructive",
-        }),
+        onError: () =>
+          toast({
+            title: { ar: "فشل تسجيل الدخول", fr: "Échec de connexion", en: "Login failed" }[lang],
+            description: {
+              ar: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+              fr: "Email ou mot de passe incorrect",
+              en: "Incorrect email or password",
+            }[lang],
+            variant: "destructive",
+          }),
       }
     );
   };
@@ -109,7 +133,10 @@ export default function LoginPage() {
         setForgotStep(2);
         toast({ title: { ar: "تم التحقق", fr: "Email vérifié", en: "Email verified" }[lang], description: data.message });
       } else {
-        toast({ title: { ar: "تم التغيير بنجاح", fr: "Mot de passe réinitialisé", en: "Password reset" }[lang], description: data.message });
+        toast({
+          title: { ar: "تم التغيير بنجاح", fr: "Mot de passe réinitialisé", en: "Password reset" }[lang],
+          description: data.message,
+        });
         setShowForgotModal(false);
         setForgotStep(1);
         setForgotEmail("");
@@ -125,13 +152,17 @@ export default function LoginPage() {
   const testimonial = testimonials[testimonialIdx];
 
   const LangSwitcher = ({ className }: { className?: string }) => (
-    <div className={`flex items-center gap-1 rounded-lg p-0.5 bg-white/10 border border-white/10 ${className ?? ""}`}>
+    <div className={`flex items-center gap-0.5 rounded-lg p-1 bg-white/10 backdrop-blur-xs border border-white/15 text-xs font-bold ${className ?? ""}`}>
       {(["ar", "fr", "en"] as const).map((l) => (
         <button
           key={l}
           type="button"
           onClick={() => setLang(l)}
-          className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${lang === l ? "bg-white text-black shadow-sm" : "text-white/50 hover:text-white"}`}
+          className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase transition-all cursor-pointer ${
+            lang === l
+              ? "bg-white text-[#0c3b2e] shadow-xs font-black"
+              : "text-white/70 hover:text-white"
+          }`}
         >
           {l}
         </button>
@@ -140,152 +171,211 @@ export default function LoginPage() {
   );
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2" dir={isRTL ? "rtl" : "ltr"}>
-      {/* Left panel: Vivid animated hero */}
-      <div className="hidden lg:flex flex-col justify-between px-14 py-12 relative overflow-hidden" style={{ background: "linear-gradient(160deg, #000000 0%, #171717 60%, #0a0a0a 100%)" }}>
-        <div className="bg-grid-pattern absolute inset-0 opacity-10" />
+    <div className="min-h-screen grid lg:grid-cols-12 bg-white" dir={isRTL ? "rtl" : "ltr"}>
+      {/* 1. Left Hero Branding Panel (Academic Forest Green Ambiance - 7 Columns on desktop) */}
+      <div className="hidden lg:flex lg:col-span-7 flex-col justify-between px-12 xl:px-16 py-12 relative overflow-hidden bg-gradient-to-br from-[#07241c] via-[#0c3b2e] to-[#08291f] text-white border-e border-emerald-900/40">
+        {/* Subtle decorative academic lights */}
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-[#d4af37]/10 blur-3xl pointer-events-none" />
 
-        {/* Floating gradient orbs for a "vivante" feel */}
-        <div
-          className="absolute -top-24 -right-16 w-80 h-80 rounded-full blur-3xl opacity-30 animate-[float1_9s_ease-in-out_infinite]"
-          style={{ background: "radial-gradient(circle, hsl(258,85%,60%), transparent 70%)" }}
-        />
-        <div
-          className="absolute bottom-10 -left-20 w-72 h-72 rounded-full blur-3xl opacity-25 animate-[float2_11s_ease-in-out_infinite]"
-          style={{ background: "radial-gradient(circle, hsl(35,90%,55%), transparent 70%)" }}
-        />
-        <div
-          className="absolute top-1/3 right-1/4 w-56 h-56 rounded-full blur-3xl opacity-20 animate-[float1_13s_ease-in-out_infinite_reverse]"
-          style={{ background: "radial-gradient(circle, hsl(330,80%,55%), transparent 70%)" }}
-        />
-        <style>{`
-          @keyframes float1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-24px,30px) scale(1.08); } }
-          @keyframes float2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(28px,-24px) scale(1.1); } }
-          @keyframes pulseGlow { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
-        `}</style>
-
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-14">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-white shadow-[0_0_24px_rgba(255,255,255,0.25)] p-1.5">
-                <LogoMark className="w-full h-full object-contain" />
-              </div>
-              <span className="text-xl font-black text-white" style={{ fontFamily: "Cairo, sans-serif" }}>Tamayyuz</span>
+        {/* Top Header in Left Panel */}
+        <div className="relative z-10 flex items-center justify-between">
+          <Link href="/student/home">
+            <div className="cursor-pointer">
+              <TamayuzDigitalLogo light={true} className="w-11 h-11" />
             </div>
-            <LangSwitcher />
-          </div>
+          </Link>
+          <LangSwitcher />
+        </div>
 
-          <div className="mb-10">
-            <p className="text-white/50 text-xs uppercase tracking-widest font-bold mb-2 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ animation: "pulseGlow 2s ease-in-out infinite" }} />
-              {{ ar: "منصة التدريب الذكي", fr: "Plateforme de formation intelligente", en: "Intelligent Training Platform" }[lang]}
-            </p>
-            <h1 className="text-4xl font-black text-white leading-tight mb-4" style={{ fontFamily: "Cairo, sans-serif" }}>
-              {{ ar: "طوّري مسيرتك", fr: "Boostez votre", en: "Grow your" }[lang]}<br />
-              <span className="bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, hsl(258,85%,70%), hsl(35,90%,65%))" }}>
-                {{ ar: "المهنية اليوم", fr: "carrière dès aujourd'hui", en: "career today" }[lang]}
-              </span>
-            </h1>
-            <p className="text-white/75 text-sm leading-relaxed">
+        {/* Center Institutional Pitch */}
+        <div className="relative z-10 my-auto py-8">
+          {/* Institutional Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-[#d4af37]/30 text-[#e5b858] text-xs font-bold mb-6 backdrop-blur-xs">
+            <span className="w-2 h-2 rounded-full bg-[#e5b858] animate-pulse" />
+            <span style={{ fontFamily: "Cairo, sans-serif" }}>
               {{
-                ar: "انضمي إلى آلاف النساء الجزائريات اللواتي يطوّرن مهاراتهن ويحوّلن مسيرتهن المهنية بفضل دوراتنا الاحترافية.",
-                fr: "Rejoignez des milliers de femmes algériennes qui développent leurs compétences et transforment leurs carrières grâce à nos formations expertes.",
-                en: "Join thousands of Algerian women developing their skills and transforming their careers with our expert-led courses.",
+                ar: "منصة أكاديمية معتمدة للتدريب والتوجيه",
+                fr: "Plateforme académique certifiée de formation et mentorat",
+                en: "Certified Academic Training & Mentoring Platform",
               }[lang]}
-            </p>
+            </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 mb-12">
+          <h1
+            className="text-3xl xl:text-4xl font-black text-white leading-tight mb-4 tracking-tight"
+            style={{ fontFamily: "Cairo, sans-serif" }}
+          >
+            {{
+              ar: "بوابتكِ نحو التميّز المعرفي والمهني",
+              fr: "Votre passerelle vers l'excellence académique et professionnelle",
+              en: "Your Gateway to Academic & Career Excellence",
+            }[lang]}
+          </h1>
+
+          <p
+            className="text-white/80 text-sm xl:text-base leading-relaxed max-w-xl mb-8 font-medium"
+            style={{ fontFamily: "Cairo, sans-serif" }}
+          >
+            {{
+              ar: "انضمي إلى نخبة المتعلمات والمدرّبات في بيئة تعليمية ذكية مصممة لتمكين الكفاءات، صقل المهارات، وبناء مسار مهني متميز مع شهادات معترف بها.",
+              fr: "Rejoignez une communauté d'apprenantes et d'expertes au sein d'un environnement numérique rigoureux, conçu pour développer vos compétences et accélérer votre réussite.",
+              en: "Join an elite community of learners and coaches in a smart learning environment designed to empower talents and build leadership pathways.",
+            }[lang]}
+          </p>
+
+          {/* 3 Academic Stat Pillars */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
             {[
-              { value: "+500", label: { ar: "دورة", fr: "Formations", en: "Courses" } },
-              { value: "+10K", label: { ar: "طالبة", fr: "Étudiantes", en: "Students" } },
-              { value: "+200", label: { ar: "مدرّبة", fr: "Coachs", en: "Coaches" } },
-            ].map(({ value, label }) => (
-              <div key={label.en} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center hover:bg-white/10 hover:-translate-y-0.5 hover:border-white/20 transition-all duration-300">
+              {
+                value: "+500",
+                label: { ar: "دورة متخصصة", fr: "Formations", en: "Specialized Courses" },
+                icon: BookOpen,
+              },
+              {
+                value: "+15K",
+                label: { ar: "طالبة ومستفيدة", fr: "Étudiantes", en: "Active Learners" },
+                icon: Users,
+              },
+              {
+                value: "+250",
+                label: { ar: "خبير ومدرب", fr: "Coachs experts", en: "Certified Mentors" },
+                icon: Award,
+              },
+            ].map(({ value, label, icon: Icon }) => (
+              <div
+                key={label.en}
+                className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center backdrop-blur-xs hover:bg-white/10 transition-all shadow-xs"
+              >
+                <div className="flex justify-center mb-1 text-[#e5b858]">
+                  <Icon className="w-5 h-5 opacity-90" />
+                </div>
                 <div className="text-2xl font-black text-white mb-0.5">{value}</div>
-                <div className="text-white/65 text-xs" style={{ fontFamily: "Cairo, sans-serif" }}>{label[lang]}</div>
+                <div className="text-white/70 text-xs font-semibold" style={{ fontFamily: "Cairo, sans-serif" }}>
+                  {label[lang]}
+                </div>
               </div>
             ))}
+          </div>
+
+          {/* Testimonial Box */}
+          <div className="bg-black/20 border border-white/15 rounded-2xl p-5 backdrop-blur-sm relative transition-all">
+            <div className="flex gap-1 mb-2.5">
+              {Array.from({ length: testimonial.stars }).map((_, i) => (
+                <Star key={i} className="w-4 h-4 fill-[#d4af37] text-[#d4af37]" />
+              ))}
+            </div>
+            <p className="text-white/90 text-xs sm:text-sm leading-relaxed mb-3 italic">
+              « {testimonial.text[lang]} »
+            </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#c59336] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                  {testimonial.name[lang].charAt(0)}
+                </div>
+                <div>
+                  <p className="text-white font-bold text-xs" style={{ fontFamily: "Cairo, sans-serif" }}>
+                    {testimonial.name[lang]}
+                  </p>
+                  <p className="text-white/60 text-[11px]">{testimonial.role[lang]}</p>
+                </div>
+              </div>
+              {/* Dots */}
+              <div className="flex gap-1">
+                {testimonials.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setTestimonialIdx(i)}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      i === testimonialIdx ? "w-5 bg-[#e5b858]" : "w-1.5 bg-white/30"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="relative z-10">
-          <div key={testimonialIdx} className="bg-white/5 border border-white/10 rounded-2xl p-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="flex gap-1 mb-3">
-              {Array.from({ length: testimonial.stars }).map((_, i) => <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />)}
-            </div>
-            <p className="text-white/85 text-sm leading-relaxed mb-4 italic">"{testimonial.text[lang]}"</p>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-black shrink-0" style={{ background: "linear-gradient(135deg, hsl(258,85%,75%), hsl(35,90%,70%))" }}>
-                {testimonial.name[lang].charAt(0)}
-              </div>
-              <div>
-                <p className="text-white font-semibold text-sm" style={{ fontFamily: "Cairo, sans-serif" }}>{testimonial.name[lang]}</p>
-                <p className="text-white/55 text-xs">{testimonial.role[lang]}</p>
-              </div>
-            </div>
+        {/* Bottom Trust Indicators */}
+        <div className="relative z-10 pt-6 border-t border-white/10 flex items-center justify-between text-xs text-white/65">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#e5b858]" />
+            <span>{{ ar: "شهادات معتمدة ورقم تأكيد موثق", fr: "Certificats vérifiés & cryptés", en: "Verified digital certificates" }[lang]}</span>
           </div>
-          <div className="flex gap-1.5 justify-center mt-3">
-            {testimonials.map((_, i) => (
-              <button key={i} onClick={() => setTestimonialIdx(i)} className="h-1 rounded-full transition-all duration-300" style={{ width: i === testimonialIdx ? "1.5rem" : "0.375rem", background: i === testimonialIdx ? "#ffffff" : "rgba(255,255,255,0.2)" }} />
-            ))}
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            <span>{{ ar: "بيئة تعليمية آمنة 100%", fr: "Environnement sécurisé SSL", en: "100% Secure Platform" }[lang]}</span>
           </div>
         </div>
       </div>
 
-      {/* Right panel: Minimalist White Login Form */}
-      <div className="flex items-center justify-center px-6 py-12 bg-white">
-        <div className="w-full max-w-sm">
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-2 lg:hidden">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white border border-border shadow-xs p-1">
-                <LogoMark className="w-full h-full object-contain" />
-              </div>
-              <span className="text-lg font-black text-foreground" style={{ fontFamily: "Cairo, sans-serif" }}>Tamayyuz</span>
-            </div>
-            <div className="flex items-center gap-1 rounded-lg p-0.5 bg-muted lg:ml-auto">
-              {(["ar", "fr", "en"] as const).map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => setLang(l)}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${lang === l ? "bg-white text-black shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
+      {/* 2. Right Form Panel (Clean, modern authentication form - 5 Columns on desktop) */}
+      <div className="lg:col-span-5 flex flex-col justify-between px-6 sm:px-12 py-10 sm:py-12 bg-white">
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between mb-8 lg:hidden">
+          <TamayuzDigitalLogo className="w-9 h-9" />
+          <div className="flex items-center gap-1 rounded-lg p-0.5 bg-neutral-100 border border-neutral-200 text-xs font-bold">
+            {(["ar", "fr", "en"] as const).map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setLang(l)}
+                className={`px-2 py-0.5 rounded-md text-[11px] font-bold uppercase transition-all ${
+                  lang === l ? "bg-[#0c3b2e] text-white shadow-2xs" : "text-neutral-600"
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="w-full max-w-md mx-auto my-auto">
+          {/* Form Header */}
+          <div className="mb-8">
+            <h2
+              className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight mb-2"
+              style={{ fontFamily: "Cairo, sans-serif" }}
+            >
+              {{ ar: "تسجيل الدخول", fr: "Connexion à votre espace", en: "Sign In" }[lang]}
+            </h2>
+            <p className="text-neutral-500 text-xs sm:text-sm" style={{ fontFamily: "Cairo, sans-serif" }}>
+              {{
+                ar: "أدخلي بيانات اعتمادكِ للمتابعة إلى منصة التميز الرقمي",
+                fr: "Saisissez vos identifiants pour accéder à votre plateforme",
+                en: "Enter your credentials to access the digital platform",
+              }[lang]}
+            </p>
           </div>
 
           {/* Coach Pending Approval Banner */}
           {user && user.role === "coach" && !user.isApproved && (
-            <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-xs space-y-2">
-              <div className="flex items-center gap-2 font-bold text-amber-800">
-                <Clock className="w-4 h-4 text-amber-600 animate-spin" />
-                {{ ar: "الملف قيد المراجعة", fr: "Profil en cours de validation", en: "Profile under review" }[lang]}
+            <div className="mb-6 p-4 rounded-xl border border-amber-300 bg-amber-50 text-amber-950 text-xs space-y-2.5 shadow-2xs">
+              <div className="flex items-center gap-2 font-black text-amber-900">
+                <Clock className="w-4 h-4 text-amber-700 animate-spin" />
+                <span style={{ fontFamily: "Cairo, sans-serif" }}>
+                  {{ ar: "ملف الاعتماد قيد التدقيق الأكاديمي", fr: "Dossier en cours d'audit pédagogique", en: "Profile under pedagogical audit" }[lang]}
+                </span>
               </div>
-              <p className="leading-relaxed">
+              <p className="leading-relaxed font-medium">
                 {{
-                  ar: "مرحباً بك! ملف تدريبك والشهادات المرفقة قيد المراجعة والتحقق من قبل إدارتنا (خلال 24 إلى 48 ساعة). ستصلك الموافقة قريباً.",
-                  fr: "Votre profil de coach et vos justificatifs sont en cours de validation par notre équipe pédagogique sous 24-48h.",
-                  en: "Your coach profile and credentials are being reviewed by our team within 24-48 hours.",
+                  ar: "مرحباً بكِ. ملفكِ التدريبي والشهادات المرفقة قيد التدقيق من قِبل إدارة المنصة (خلال 24 إلى 48 ساعة). ستصلكِ رسالة التفعيل فور اعتماد الحساب.",
+                  fr: "Votre dossier de formatrice et vos justificatifs sont en cours d'audit par la direction pédagogique sous 24-48h.",
+                  en: "Your coaching dossier and credentials are being audited by our pedagogical committee within 24-48h.",
                 }[lang]}
               </p>
-              <Button onClick={() => logout()} variant="outline" size="sm" className="w-full h-8 text-[11px] border-amber-300 bg-white">
+              <Button
+                onClick={() => logout()}
+                variant="outline"
+                size="sm"
+                className="w-full h-8.5 text-xs font-bold border-amber-300 bg-white hover:bg-amber-100/60 text-amber-900"
+              >
                 {{ ar: "تسجيل الخروج", fr: "Se déconnecter", en: "Log out" }[lang]}
               </Button>
             </div>
           )}
 
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-foreground mb-1" style={{ fontFamily: "Cairo, sans-serif" }}>
-              {{ ar: "أهلاً بكِ مجدداً", fr: "Bon retour", en: "Welcome back" }[lang]}
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              {{ ar: "أدخلي بياناتك لمتابعة تعلّمك", fr: "Connectez-vous à votre espace", en: "Log in to your space" }[lang]}
-            </p>
-          </div>
-
+          {/* Login Form */}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <FormField
@@ -293,33 +383,42 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-foreground font-medium">{{ ar: "البريد الإلكتروني", fr: "Adresse email", en: "Email address" }[lang]}</FormLabel>
+                    <FormLabel className="text-neutral-800 font-bold text-xs" style={{ fontFamily: "Cairo, sans-serif" }}>
+                      {{ ar: "البريد الإلكتروني", fr: "Adresse email", en: "Email address" }[lang]}
+                    </FormLabel>
                     <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="vous@exemple.com"
-                        autoComplete="email"
-                        autoFocus
-                        className="h-11 rounded-lg bg-white border-border text-foreground focus-visible:ring-2 focus-visible:ring-black/80 transition-shadow"
-                        data-testid="input-email"
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Input
+                          type="email"
+                          placeholder="votre.email@domaine.com"
+                          autoComplete="email"
+                          autoFocus
+                          className="h-11 rounded-xl bg-white border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-2 focus-visible:ring-[#0c3b2e] focus-visible:border-[#0c3b2e] text-xs sm:text-sm pl-10 pr-4 shadow-2xs"
+                          data-testid="input-email"
+                          {...field}
+                        />
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                      </div>
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel className="text-foreground font-medium">{{ ar: "كلمة المرور", fr: "Mot de passe", en: "Password" }[lang]}</FormLabel>
+                    <div className="flex items-center justify-between mb-1">
+                      <FormLabel className="text-neutral-800 font-bold text-xs" style={{ fontFamily: "Cairo, sans-serif" }}>
+                        {{ ar: "كلمة المرور", fr: "Mot de passe", en: "Password" }[lang]}
+                      </FormLabel>
                       <button
                         type="button"
                         onClick={() => setShowForgotModal(true)}
-                        className="text-xs font-semibold text-neutral-600 hover:text-black hover:underline"
+                        className="text-xs font-bold text-[#0c3b2e] hover:text-[#144f3e] hover:underline cursor-pointer"
+                        style={{ fontFamily: "Cairo, sans-serif" }}
                       >
                         {{ ar: "نسيت كلمة المرور؟", fr: "Mot de passe oublié ?", en: "Forgot password?" }[lang]}
                       </button>
@@ -330,113 +429,140 @@ export default function LoginPage() {
                           type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
                           autoComplete="current-password"
-                          className="h-11 rounded-lg pr-10 bg-white border-border text-foreground focus-visible:ring-2 focus-visible:ring-black/80 transition-shadow"
+                          className="h-11 rounded-xl bg-white border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-2 focus-visible:ring-[#0c3b2e] focus-visible:border-[#0c3b2e] text-xs sm:text-sm pl-10 pr-10 shadow-2xs"
                           data-testid="input-password"
                           {...field}
                         />
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
                         <button
                           type="button"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground rounded-md p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/80 transition-colors"
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 p-0.5 cursor-pointer"
                           onClick={() => setShowPassword((v) => !v)}
-                          aria-label={showPassword ? { ar: "إخفاء كلمة المرور", fr: "Masquer le mot de passe", en: "Hide password" }[lang] : { ar: "إظهار كلمة المرور", fr: "Afficher le mot de passe", en: "Show password" }[lang]}
-                          aria-pressed={showPassword}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
                         >
                           {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
+
+              {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full h-11 rounded-lg font-bold text-sm bg-black hover:bg-black/90 text-white transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full h-11.5 rounded-xl font-bold text-sm bg-[#0c3b2e] hover:bg-[#144f3e] active:bg-[#08281d] text-white transition-all shadow-md hover:shadow-lg disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2 mt-2"
                 disabled={loginMutation.isPending}
+                style={{ fontFamily: "Cairo, sans-serif" }}
                 data-testid="button-login"
               >
                 {loginMutation.isPending ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    {{ ar: "جارٍ الدخول...", fr: "Connexion...", en: "Logging in..." }[lang]}
+                    {{ ar: "جارٍ التحقق والدخول...", fr: "Connexion en cours...", en: "Signing in..." }[lang]}
                   </span>
                 ) : (
-                  { ar: "تسجيل الدخول", fr: "Se connecter", en: "Log in" }[lang]
+                  <>
+                    <span>{{ ar: "تسجيل الدخول", fr: "Se connecter", en: "Sign In" }[lang]}</span>
+                    {isRTL ? <ArrowLeft className="w-4 h-4 text-[#e5b858]" /> : <ArrowRight className="w-4 h-4 text-[#e5b858]" />}
+                  </>
                 )}
               </Button>
             </form>
           </Form>
 
-          {/* Forgot Password Modal */}
-          <Dialog open={showForgotModal} onOpenChange={setShowForgotModal}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base font-bold" style={{ fontFamily: "Cairo, sans-serif" }}>
-                  <KeyRound className="w-5 h-5 text-neutral-800" />
-                  {{ ar: "استعادة كلمة المرور", fr: "Réinitialisation du mot de passe", en: "Reset password" }[lang]}
-                </DialogTitle>
-                <DialogDescription className="text-xs">
-                  {{
-                    ar: "أدخلي بريدكِ الإلكتروني المسجل لتعيين كلمة مرور جديدة لحسابكِ فوراً.",
-                    fr: "Entrez votre adresse email enregistrée pour définir un nouveau mot de passe sécurisé.",
-                    en: "Enter your registered email to set a new password immediately.",
-                  }[lang]}
-                </DialogDescription>
-              </DialogHeader>
+          {/* Link to Register */}
+          <div className="mt-8 pt-6 border-t border-neutral-100 text-center">
+            <p className="text-xs sm:text-sm text-neutral-600" style={{ fontFamily: "Cairo, sans-serif" }}>
+              {{ ar: "ليس لديكِ حساب بعد؟", fr: "Pas encore de compte ?", en: "Don't have an account yet?" }[lang]}{" "}
+              <Link
+                href={redirectTo ? `/register?redirect=${encodeURIComponent(redirectTo)}` : "/register"}
+                className="font-black text-[#0c3b2e] hover:text-[#144f3e] hover:underline inline-flex items-center gap-1"
+                data-testid="link-register"
+              >
+                <span>{{ ar: "إنشاء حساب جديد", fr: "Créer un compte", en: "Create an account" }[lang]}</span>
+                <span>←</span>
+              </Link>
+            </p>
+          </div>
+        </div>
 
-              <form onSubmit={handleForgotPassword} className="space-y-4 pt-2">
+        {/* Modal: Forgot Password */}
+        <Dialog open={showForgotModal} onOpenChange={setShowForgotModal}>
+          <DialogContent className="max-w-md bg-white border border-neutral-200 rounded-2xl shadow-xl p-6">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-neutral-900" style={{ fontFamily: "Cairo, sans-serif" }}>
+                <KeyRound className="w-5 h-5 text-[#0c3b2e]" />
+                {{ ar: "استعادة كلمة المرور", fr: "Réinitialisation du mot de passe", en: "Reset password" }[lang]}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-neutral-500" style={{ fontFamily: "Cairo, sans-serif" }}>
+                {{
+                  ar: "أدخلي بريدكِ الإلكتروني المسجل لتعيين كلمة مرور جديدة لحسابكِ فوراً.",
+                  fr: "Entrez votre adresse email enregistrée pour définir un nouveau mot de passe sécurisé.",
+                  en: "Enter your registered email to set a new password immediately.",
+                }[lang]}
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleForgotPassword} className="space-y-4 pt-3">
+              <div>
+                <label className="text-xs font-bold text-neutral-800 block mb-1.5" style={{ fontFamily: "Cairo, sans-serif" }}>
+                  {{ ar: "البريد الإلكتروني", fr: "Adresse email", en: "Email address" }[lang]}
+                </label>
+                <Input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="votre.email@domaine.com"
+                  required
+                  disabled={forgotStep === 2}
+                  className="text-xs h-10 rounded-xl bg-white border-neutral-300 focus-visible:ring-[#0c3b2e]"
+                />
+              </div>
+
+              {forgotStep === 2 && (
                 <div>
-                  <label className="text-xs font-semibold text-foreground block mb-1">
-                    {{ ar: "البريد الإلكتروني", fr: "Adresse email", en: "Email address" }[lang]}
+                  <label className="text-xs font-bold text-neutral-800 block mb-1.5" style={{ fontFamily: "Cairo, sans-serif" }}>
+                    {{ ar: "كلمة المرور الجديدة (6 أحرف على الأقل)", fr: "Nouveau mot de passe (6 car. min.)", en: "New password (min 6 chars)" }[lang]}
                   </label>
                   <Input
-                    type="email"
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="vous@exemple.com"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
                     required
-                    disabled={forgotStep === 2}
-                    className="text-xs h-9 bg-white"
+                    minLength={6}
+                    autoFocus
+                    className="text-xs h-10 rounded-xl bg-white border-neutral-300 focus-visible:ring-[#0c3b2e]"
                   />
                 </div>
+              )}
 
-                {forgotStep === 2 && (
-                  <div>
-                    <label className="text-xs font-semibold text-foreground block mb-1">
-                      {{ ar: "كلمة المرور الجديدة (6 أحرف على الأقل)", fr: "Nouveau mot de passe (6 caractères min.)", en: "New password (min 6 chars)" }[lang]}
-                    </label>
-                    <Input
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
-                      autoFocus
-                      className="text-xs h-9 bg-white"
-                    />
-                  </div>
+              <Button
+                type="submit"
+                disabled={isSubmittingForgot}
+                className="w-full bg-[#0c3b2e] hover:bg-[#144f3e] text-white font-bold text-xs h-10 rounded-xl shadow-xs"
+                style={{ fontFamily: "Cairo, sans-serif" }}
+              >
+                {isSubmittingForgot ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Traitement...
+                  </span>
+                ) : forgotStep === 1 ? (
+                  ({ ar: "متابعة والتحقق", fr: "Vérifier le compte", en: "Continue" }[lang])
+                ) : (
+                  ({ ar: "حفظ كلمة المرور الجديدة", fr: "Enregistrer le mot de passe", en: "Save new password" }[lang])
                 )}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
 
-                <Button type="submit" disabled={isSubmittingForgot} className="w-full bg-black hover:bg-black/90 text-white font-bold text-xs h-9">
-                  {isSubmittingForgot ? (
-                    <span className="flex items-center gap-2"><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Traitement...</span>
-                  ) : forgotStep === 1 ? (
-                    ({ ar: "متابعة", fr: "Vérifier le compte", en: "Continue" }[lang])
-                  ) : (
-                    ({ ar: "حفظ كلمة المرور الجديدة", fr: "Enregistrer le mot de passe", en: "Save new password" }[lang])
-                  )}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            {{ ar: "ليس لديكِ حساب؟", fr: "Pas encore de compte ?", en: "Don't have an account yet?" }[lang]}{" "}
-            <Link href={redirectTo ? `/register?redirect=${encodeURIComponent(redirectTo)}` : "/register"} className="text-black hover:underline font-bold" data-testid="link-register">
-              {{ ar: "إنشاء حساب", fr: "Créer un compte", en: "Create an account" }[lang]}
-            </Link>
-          </p>
+        {/* Footer info */}
+        <div className="text-center text-[11px] text-neutral-400 mt-6">
+          © {new Date().getFullYear()} منصة التميز الرقمي · Digital Tamayuz Platform
         </div>
       </div>
     </div>

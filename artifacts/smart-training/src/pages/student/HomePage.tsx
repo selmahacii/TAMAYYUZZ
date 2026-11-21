@@ -33,10 +33,16 @@ export default function StudentHomePage() {
   const [activeSidebarKey, setActiveSidebarKey] = useState("home");
 
   const { data: rawCourses, isLoading } = useGetMarketplace(
-    { limit: 20 },
-    { query: { queryKey: getGetMarketplaceQueryKey({ limit: 20 }) } }
+    { limit: 20, sortBy: "popular" },
+    { query: { queryKey: getGetMarketplaceQueryKey({ limit: 20, sortBy: "popular" }) } }
   );
   const allCourses = Array.isArray(rawCourses) ? rawCourses : [];
+
+  const levelLabels: Record<string, string> = {
+    beginner: "مستوى مبتدئ",
+    intermediate: "مستوى متوسط",
+    advanced: "مستوى متقدم",
+  };
 
   // Countries for selector bar
   const countries: CountryOption[] = [
@@ -62,51 +68,15 @@ export default function StudentHomePage() {
     { key: "help", label: "مركز المساعدة", icon: Headphones, href: "/help" },
   ];
 
-  // Specific 4 reference courses matching the prompt's reference image
-  const targetCourseIds = [24, 25, 26, 27];
-  const featuredCourses = targetCourseIds
-    .map((id) => allCourses.find((c) => c.id === id))
-    .filter(Boolean) as typeof allCourses;
-
-  // Fallback metadata for the exact 4 reference items
-  const fallbackReferenceCards = [
-    {
-      id: 24,
-      title: "أساسيات التربية الحديثة",
-      badgeText: "مدفوع",
-      badgeType: "paid",
-      rating: "4.9",
-      subLevel: "مستوى مبتدئ",
-      imageUrl: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=800&q=80",
-    },
-    {
-      id: 25,
-      title: "مهارات الكتابة الأكاديمية",
-      badgeText: "مجاني",
-      badgeType: "free",
-      rating: "4.8",
-      subLevel: "مستوى متوسط",
-      imageUrl: "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
-    },
-    {
-      id: 26,
-      title: "مهارات التحليل الإحصائي",
-      badgeText: "مدفوع",
-      badgeType: "paid",
-      rating: "4.7",
-      subLevel: "مستوى متقدم",
-      imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
-    },
-    {
-      id: 27,
-      title: "منهجية البحث العلمي",
-      badgeText: "مجاني",
-      badgeType: "free",
-      rating: "4.8",
-      subLevel: "لجميع الجامعات",
-      imageUrl: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80",
-    },
-  ];
+  // Top 4 courses actually in the catalog, ranked by real rating then popularity —
+  // no fixed IDs and no placeholder titles/images/ratings.
+  const featuredCourses = [...allCourses]
+    .sort((a, b) => {
+      const ratingDiff = (b.avgRating ?? -1) - (a.avgRating ?? -1);
+      if (ratingDiff !== 0) return ratingDiff;
+      return (b.enrollmentCount ?? 0) - (a.enrollmentCount ?? 0);
+    })
+    .slice(0, 4);
 
   const handleCourseClick = (id: number) => {
     setLocation(`/course/${id}`);
@@ -367,72 +337,96 @@ export default function StudentHomePage() {
                 </button>
               </div>
 
-              {/* 4 Course Cards Grid matching the exact reference UI */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                {fallbackReferenceCards.map((item) => {
-                  const dbCourse = featuredCourses.find((c) => c.id === item.id);
-                  const title = dbCourse?.title || item.title;
-                  const imageUrl = dbCourse?.imageUrl || item.imageUrl;
-                  const isPaid = item.badgeType === "paid";
-
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleCourseClick(item.id)}
-                      className="bg-white border border-neutral-200/90 rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer group flex flex-col"
-                    >
-                      {/* Course Thumbnail with Tag Badge */}
-                      <div className="relative aspect-video w-full overflow-hidden bg-neutral-100">
-                        <img
-                          src={imageUrl}
-                          alt={title}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          loading="lazy"
-                        />
-                        {/* Paid / Free badge on top right (or top left in RTL) */}
-                        <div className="absolute top-2.5 right-2.5 z-10">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-md text-[11px] font-black shadow-xs ${
-                              isPaid
-                                ? "bg-[#c59336] text-white"
-                                : "bg-[#1b7348] text-white"
-                            }`}
-                            style={{ fontFamily: "Cairo, sans-serif" }}
-                          >
-                            {item.badgeText}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Course Information */}
-                      <div className="p-3.5 flex-1 flex flex-col justify-between">
-                        <h4
-                          className="font-bold text-neutral-900 text-xs sm:text-sm line-clamp-2 leading-snug mb-3 group-hover:text-[#0c3b2e] transition-colors"
-                          style={{ fontFamily: "Cairo, sans-serif" }}
-                        >
-                          {title}
-                        </h4>
-
-                        {/* Bottom Row: Rating on left, Level & Flag on right */}
-                        <div className="flex items-center justify-between text-xs text-neutral-600 pt-2 border-t border-neutral-100">
-                          {/* Rating */}
-                          <div className="flex items-center gap-1 font-bold text-neutral-800">
-                            <span className="text-[#d4af37] font-black">★</span>
-                            <span>{item.rating}</span>
-                          </div>
-
-                          {/* Country Flag & Level Sub-badge */}
-                          <div className="flex items-center gap-1.5 font-medium text-neutral-500 text-[11px]">
-                            <span>{item.subLevel}</span>
-                            <FlagDZ className="w-3.5 h-2.5 rounded-[1px]" />
-                            <span className="text-neutral-700 font-bold">الجزائر</span>
-                          </div>
-                        </div>
+              {/* 4 Course Cards Grid, populated from real catalog data */}
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="bg-white border border-neutral-200/90 rounded-2xl overflow-hidden shadow-2xs animate-pulse">
+                      <div className="aspect-video w-full bg-neutral-100" />
+                      <div className="p-3.5 space-y-3">
+                        <div className="h-3 bg-neutral-100 rounded w-5/6" />
+                        <div className="h-3 bg-neutral-100 rounded w-2/3" />
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              ) : featuredCourses.length === 0 ? (
+                <div className="bg-white border border-neutral-200/90 rounded-2xl p-8 text-center text-neutral-500 text-sm" style={{ fontFamily: "Cairo, sans-serif" }}>
+                  لا توجد دورات منشورة حالياً
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  {featuredCourses.map((course) => {
+                    const isPaid = !course.isFree;
+
+                    return (
+                      <div
+                        key={course.id}
+                        onClick={() => handleCourseClick(course.id)}
+                        className="bg-white border border-neutral-200/90 rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer group flex flex-col"
+                      >
+                        {/* Course Thumbnail with Tag Badge */}
+                        <div className="relative aspect-video w-full overflow-hidden bg-neutral-100">
+                          {course.imageUrl ? (
+                            <img
+                              src={course.imageUrl}
+                              alt={course.title}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0c3b2e] to-[#144f3e]">
+                              <GraduationCap className="w-10 h-10 text-white/40" />
+                            </div>
+                          )}
+                          {/* Paid / Free badge on top right (or top left in RTL) */}
+                          <div className="absolute top-2.5 right-2.5 z-10">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-md text-[11px] font-black shadow-xs ${
+                                isPaid
+                                  ? "bg-[#c59336] text-white"
+                                  : "bg-[#1b7348] text-white"
+                              }`}
+                              style={{ fontFamily: "Cairo, sans-serif" }}
+                            >
+                              {isPaid ? "مدفوع" : "مجاني"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Course Information */}
+                        <div className="p-3.5 flex-1 flex flex-col justify-between">
+                          <h4
+                            className="font-bold text-neutral-900 text-xs sm:text-sm line-clamp-2 leading-snug mb-3 group-hover:text-[#0c3b2e] transition-colors"
+                            style={{ fontFamily: "Cairo, sans-serif" }}
+                          >
+                            {course.title}
+                          </h4>
+
+                          {/* Bottom Row: Rating (real, or "new") on left, Level on right */}
+                          <div className="flex items-center justify-between text-xs text-neutral-600 pt-2 border-t border-neutral-100">
+                            <div className="flex items-center gap-1 font-bold text-neutral-800">
+                              {course.avgRating != null ? (
+                                <>
+                                  <span className="text-[#d4af37] font-black">★</span>
+                                  <span>{course.avgRating.toFixed(1)}</span>
+                                  <span className="text-neutral-400 font-medium">({course.reviewCount})</span>
+                                </>
+                              ) : (
+                                <span className="text-[#1a7f4f] font-bold" style={{ fontFamily: "Cairo, sans-serif" }}>جديد</span>
+                              )}
+                            </div>
+
+                            <span className="font-medium text-neutral-500 text-[11px]" style={{ fontFamily: "Cairo, sans-serif" }}>
+                              {levelLabels[course.level] ?? course.level}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </main>
 
