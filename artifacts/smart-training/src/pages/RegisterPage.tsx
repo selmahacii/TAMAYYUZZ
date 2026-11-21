@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Eye, EyeOff, GraduationCap, Award, Info, Plus, X, Sparkles,
+  Eye, EyeOff, GraduationCap, Award, Info, Plus, X, Compass,
   Paperclip, Loader2, CheckCircle2, User, Mail, Lock, Phone,
   BookOpen, Briefcase, ShieldCheck, ArrowLeft, ArrowRight
 } from "lucide-react";
@@ -554,7 +554,7 @@ export default function RegisterPage() {
               {selectedRole === "student" && (
                 <div className="pt-2">
                   <label className="text-neutral-800 font-bold text-xs flex items-center gap-1.5 mb-2" style={{ fontFamily: "Cairo, sans-serif" }}>
-                    <Sparkles className="w-3.5 h-3.5 text-[#d4af37]" />
+                    <Compass className="w-3.5 h-3.5 text-[#0c3b2e]" />
                     {{
                       ar: "مجالات اهتمامكِ (لتخصيص الاقتراحات ومحتوى بلدكِ)",
                       fr: "Centres d'intérêt (pour adapter vos recommandations)",

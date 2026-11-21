@@ -244,9 +244,6 @@ export function LibraryPillarIcon({ className = "w-20 h-16" }: { className?: str
 export function HeroAcademicGraphic({ className = "w-72 h-64" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 340 300" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Ambient warm glow */}
-      <circle cx="170" cy="150" r="120" fill="#D4AF37" opacity="0.12" filter="url(#glow)" />
-
       {/* Bottom Book (Large leather bound) */}
       <rect x="40" y="190" width="220" height="42" rx="5" fill="#3D2314" />
       <rect x="65" y="196" width="190" height="30" fill="#FDF7EA" />

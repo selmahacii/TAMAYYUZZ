@@ -15,7 +15,7 @@ import {
 } from "@/components/student/PortalIllustrations";
 import {
   Home, Globe, Users, Briefcase, BookOpen, Star, UserCheck, Headphones,
-  GraduationCap, TrendingUp, Sparkles, ChevronRight, CheckCircle2
+  GraduationCap, TrendingUp, ChevronRight, CheckCircle2
 } from "lucide-react";
 
 interface CountryOption {

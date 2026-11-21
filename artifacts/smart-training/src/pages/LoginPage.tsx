@@ -12,7 +12,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import {
   Eye, EyeOff, Star, GraduationCap, Award, ShieldCheck, KeyRound,
-  Clock, Mail, Lock, ArrowLeft, ArrowRight, BookOpen, Users, CheckCircle2
+  Clock, Mail, Lock, ArrowLeft, ArrowRight, BookOpen, Users, CheckCircle2,
+  Building2, FileCheck
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { TamayuzDigitalLogo } from "@/components/shared/TamayuzDigitalLogo";
@@ -29,7 +30,7 @@ const testimonials = [
     name: { ar: "أمينة بوزيد", fr: "Amina Bouzid", en: "Amina Bouzid" },
     role: { ar: "رئيسة مشروع، الجزائر العاصمة", fr: "Cheffe de projet, Alger", en: "Project Lead, Algiers" },
     text: {
-      ar: "منصة التميز مكّنتني من صقل مهاراتي القيادية والإدارية بمنهجية تدريب أكاديمية راقية.",
+      ar: "منصة التميز مكّنتني من صقل مهاراتي القيادية والإدارية بمنهجية تدريب أكاديمية راقية ومتابعة مهنية دقيقة.",
       fr: "Tamayuz m'a permis de développer mes compétences managériales avec une rigueur pédagogique remarquable.",
       en: "Tamayuz enabled me to sharpen my management skills with outstanding academic rigor."
     },
@@ -39,9 +40,9 @@ const testimonials = [
     name: { ar: "سارة مزراق", fr: "Sara Mezraq", en: "Sara Mezraq" },
     role: { ar: "رائدة أعمال، وهران", fr: "Entrepreneuse, Oran", en: "Entrepreneur, Oran" },
     text: {
-      ar: "المحتوى الأكاديمي والمدربون على أعلى مستوى. منصة متميزة في خدمة المرأة الجزائرية.",
-      fr: "Le contenu académique et les formateurs sont de tout premier ordre. Une référence pour nos carrières.",
-      en: "The academic content and trainers are top notch. A gold standard for career advancement."
+      ar: "المحتوى الأكاديمي والمدربون على أعلى مستوى من الاحترافية. دورات عملية تخدم سوق العمل بامتياز.",
+      fr: "Le contenu académique et les formateurs sont de tout premier ordre. Des formations pratiques et reconnues.",
+      en: "The academic content and trainers are highly professional, directly meeting market requirements."
     },
     stars: 5,
   },
@@ -49,9 +50,9 @@ const testimonials = [
     name: { ar: "د. هدى بلحاج", fr: "Dr. Houda Belhadj", en: "Dr. Houda Belhadj" },
     role: { ar: "باحثة جامعية، قسنطينة", fr: "Chercheuse universitaire, Constantine", en: "Academic Researcher, Constantine" },
     text: {
-      ar: "الدورات مصممة بمعايير علمية وتطبيقات واقعية تسهم بشكل ملموس في التميز والارتقاء.",
-      fr: "Des cours structurés selon les normes universitaires avec des applications professionnelles réelles.",
-      en: "Courses built to university standards with tangible real-world professional applications."
+      ar: "برامج تدريبية متقنة تلتزم بأحدث معايير التعليم العالي وتتيح مسارات واضحة للتطور المعرفي والمهني.",
+      fr: "Des programmes structurés selon les standards académiques, offrant des parcours clairs d'évolution.",
+      en: "Structured curricula aligned with higher education standards, offering clear pathways for advancement."
     },
     stars: 5,
   },
@@ -152,7 +153,7 @@ export default function LoginPage() {
   const testimonial = testimonials[testimonialIdx];
 
   const LangSwitcher = ({ className }: { className?: string }) => (
-    <div className={`flex items-center gap-0.5 rounded-lg p-1 bg-white/10 backdrop-blur-xs border border-white/15 text-xs font-bold ${className ?? ""}`}>
+    <div className={`flex items-center gap-0.5 rounded-lg p-1 bg-white/10 border border-white/20 text-xs font-bold ${className ?? ""}`}>
       {(["ar", "fr", "en"] as const).map((l) => (
         <button
           key={l}
@@ -172,11 +173,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen grid lg:grid-cols-12 bg-white" dir={isRTL ? "rtl" : "ltr"}>
-      {/* 1. Left Hero Branding Panel (Academic Forest Green Ambiance - 7 Columns on desktop) */}
-      <div className="hidden lg:flex lg:col-span-7 flex-col justify-between px-12 xl:px-16 py-12 relative overflow-hidden bg-gradient-to-br from-[#07241c] via-[#0c3b2e] to-[#08291f] text-white border-e border-emerald-900/40">
-        {/* Subtle decorative academic lights */}
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-[#d4af37]/10 blur-3xl pointer-events-none" />
+      {/* 1. Left Hero Branding Panel (Sober Institutional Academic Atmosphere) */}
+      <div className="hidden lg:flex lg:col-span-7 flex-col justify-between px-12 xl:px-16 py-12 relative bg-[#0c3b2e] text-white border-e border-neutral-200">
+        {/* Subtle geometric academic background pattern (clean architectural grid, zero blurry lights) */}
+        <div
+          className="absolute inset-0 opacity-5 pointer-events-none"
+          style={{
+            backgroundImage: `linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(to right, #ffffff 1px, transparent 1px)`,
+            backgroundSize: "32px 32px",
+          }}
+        />
 
         {/* Top Header in Left Panel */}
         <div className="relative z-10 flex items-center justify-between">
@@ -191,13 +197,13 @@ export default function LoginPage() {
         {/* Center Institutional Pitch */}
         <div className="relative z-10 my-auto py-8">
           {/* Institutional Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-[#d4af37]/30 text-[#e5b858] text-xs font-bold mb-6 backdrop-blur-xs">
-            <span className="w-2 h-2 rounded-full bg-[#e5b858] animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md bg-white/10 border border-[#d4af37]/40 text-[#f3cf7a] text-xs font-bold mb-6">
+            <Building2 className="w-3.5 h-3.5 text-[#d4af37]" />
             <span style={{ fontFamily: "Cairo, sans-serif" }}>
               {{
-                ar: "منصة أكاديمية معتمدة للتدريب والتوجيه",
-                fr: "Plateforme académique certifiée de formation et mentorat",
-                en: "Certified Academic Training & Mentoring Platform",
+                ar: "المؤسسة الأكاديمية للتدريب والتأهيل المهني",
+                fr: "Institution académique de formation et de certification",
+                en: "Academic Institution for Training & Professional Qualification",
               }[lang]}
             </span>
           </div>
@@ -218,39 +224,39 @@ export default function LoginPage() {
             style={{ fontFamily: "Cairo, sans-serif" }}
           >
             {{
-              ar: "انضمي إلى نخبة المتعلمات والمدرّبات في بيئة تعليمية ذكية مصممة لتمكين الكفاءات، صقل المهارات، وبناء مسار مهني متميز مع شهادات معترف بها.",
-              fr: "Rejoignez une communauté d'apprenantes et d'expertes au sein d'un environnement numérique rigoureux, conçu pour développer vos compétences et accélérer votre réussite.",
-              en: "Join an elite community of learners and coaches in a smart learning environment designed to empower talents and build leadership pathways.",
+              ar: "انضمي إلى بيئة تعليمية وأكاديمية متكاملة مصممة لتأهيل الكفاءات، تعميق المعرفة، وبناء مسار مهني معتمد وفق أحدث المناهج الجامعية والميدانية.",
+              fr: "Rejoignez un cadre académique structuré, pensé pour former les talents, approfondir les compétences et bâtir des parcours certifiés aux standards internationaux.",
+              en: "Join a structured academic framework designed to qualify talents, enhance skills, and build certified pathways.",
             }[lang]}
           </p>
 
-          {/* 3 Academic Stat Pillars */}
+          {/* 3 Real Academic Stat Pillars */}
           <div className="grid grid-cols-3 gap-4 mb-8">
             {[
               {
                 value: "+500",
-                label: { ar: "دورة متخصصة", fr: "Formations", en: "Specialized Courses" },
+                label: { ar: "دورة معتمدة", fr: "Formations", en: "Accredited Courses" },
                 icon: BookOpen,
               },
               {
-                value: "+15K",
-                label: { ar: "طالبة ومستفيدة", fr: "Étudiantes", en: "Active Learners" },
+                value: "+15 000",
+                label: { ar: "طالبة ومستفيدة", fr: "Étudiantes formées", en: "Enrolled Students" },
                 icon: Users,
               },
               {
                 value: "+250",
-                label: { ar: "خبير ومدرب", fr: "Coachs experts", en: "Certified Mentors" },
+                label: { ar: "أستاذ وخبير", fr: "Enseignants & Experts", en: "Professors & Experts" },
                 icon: Award,
               },
             ].map(({ value, label, icon: Icon }) => (
               <div
                 key={label.en}
-                className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center backdrop-blur-xs hover:bg-white/10 transition-all shadow-xs"
+                className="bg-white/5 border border-white/10 rounded-xl p-4 text-center hover:bg-white/10 transition-colors shadow-2xs"
               >
-                <div className="flex justify-center mb-1 text-[#e5b858]">
+                <div className="flex justify-center mb-1.5 text-[#d4af37]">
                   <Icon className="w-5 h-5 opacity-90" />
                 </div>
-                <div className="text-2xl font-black text-white mb-0.5">{value}</div>
+                <div className="text-xl xl:text-2xl font-black text-white mb-0.5">{value}</div>
                 <div className="text-white/70 text-xs font-semibold" style={{ fontFamily: "Cairo, sans-serif" }}>
                   {label[lang]}
                 </div>
@@ -259,18 +265,18 @@ export default function LoginPage() {
           </div>
 
           {/* Testimonial Box */}
-          <div className="bg-black/20 border border-white/15 rounded-2xl p-5 backdrop-blur-sm relative transition-all">
+          <div className="bg-black/25 border border-white/15 rounded-xl p-5 relative">
             <div className="flex gap-1 mb-2.5">
               {Array.from({ length: testimonial.stars }).map((_, i) => (
                 <Star key={i} className="w-4 h-4 fill-[#d4af37] text-[#d4af37]" />
               ))}
             </div>
-            <p className="text-white/90 text-xs sm:text-sm leading-relaxed mb-3 italic">
+            <p className="text-white/90 text-xs sm:text-sm leading-relaxed mb-3 font-normal">
               « {testimonial.text[lang]} »
             </p>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between pt-2 border-t border-white/10">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#c59336] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                <div className="w-8 h-8 rounded-full bg-[#1b5e43] border border-[#d4af37]/40 text-[#d4af37] flex items-center justify-center font-bold text-xs shadow-xs">
                   {testimonial.name[lang].charAt(0)}
                 </div>
                 <div>
@@ -280,14 +286,14 @@ export default function LoginPage() {
                   <p className="text-white/60 text-[11px]">{testimonial.role[lang]}</p>
                 </div>
               </div>
-              {/* Dots */}
-              <div className="flex gap-1">
+              {/* Pagination Dots */}
+              <div className="flex gap-1.5">
                 {testimonials.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setTestimonialIdx(i)}
                     className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                      i === testimonialIdx ? "w-5 bg-[#e5b858]" : "w-1.5 bg-white/30"
+                      i === testimonialIdx ? "w-5 bg-[#d4af37]" : "w-1.5 bg-white/30"
                     }`}
                   />
                 ))}
@@ -297,19 +303,19 @@ export default function LoginPage() {
         </div>
 
         {/* Bottom Trust Indicators */}
-        <div className="relative z-10 pt-6 border-t border-white/10 flex items-center justify-between text-xs text-white/65">
+        <div className="relative z-10 pt-6 border-t border-white/10 flex items-center justify-between text-xs text-white/70">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#e5b858]" />
-            <span>{{ ar: "شهادات معتمدة ورقم تأكيد موثق", fr: "Certificats vérifiés & cryptés", en: "Verified digital certificates" }[lang]}</span>
+            <FileCheck className="w-4 h-4 text-[#d4af37]" />
+            <span>{{ ar: "شهادات تدريبية رسمية برمز توثيق فريد", fr: "Attestations officielles avec identifiant unique", en: "Official certificates with unique verification code" }[lang]}</span>
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>{{ ar: "بيئة تعليمية آمنة 100%", fr: "Environnement sécurisé SSL", en: "100% Secure Platform" }[lang]}</span>
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>{{ ar: "نظام تدريب خاضع للمراجعة والتقييم الدوري", fr: "Système de formation sous contrôle pédagogique", en: "Monitored pedagogical platform" }[lang]}</span>
           </div>
         </div>
       </div>
 
-      {/* 2. Right Form Panel (Clean, modern authentication form - 5 Columns on desktop) */}
+      {/* 2. Right Form Panel (Clean, sober, institutional login) */}
       <div className="lg:col-span-5 flex flex-col justify-between px-6 sm:px-12 py-10 sm:py-12 bg-white">
         {/* Mobile Header */}
         <div className="flex items-center justify-between mb-8 lg:hidden">
@@ -339,10 +345,10 @@ export default function LoginPage() {
             >
               {{ ar: "تسجيل الدخول", fr: "Connexion à votre espace", en: "Sign In" }[lang]}
             </h2>
-            <p className="text-neutral-500 text-xs sm:text-sm" style={{ fontFamily: "Cairo, sans-serif" }}>
+            <p className="text-neutral-600 text-xs sm:text-sm" style={{ fontFamily: "Cairo, sans-serif" }}>
               {{
                 ar: "أدخلي بيانات اعتمادكِ للمتابعة إلى منصة التميز الرقمي",
-                fr: "Saisissez vos identifiants pour accéder à votre plateforme",
+                fr: "Saisissez vos identifiants pour accéder à vos formations",
                 en: "Enter your credentials to access the digital platform",
               }[lang]}
             </p>
@@ -352,7 +358,7 @@ export default function LoginPage() {
           {user && user.role === "coach" && !user.isApproved && (
             <div className="mb-6 p-4 rounded-xl border border-amber-300 bg-amber-50 text-amber-950 text-xs space-y-2.5 shadow-2xs">
               <div className="flex items-center gap-2 font-black text-amber-900">
-                <Clock className="w-4 h-4 text-amber-700 animate-spin" />
+                <Clock className="w-4 h-4 text-amber-700" />
                 <span style={{ fontFamily: "Cairo, sans-serif" }}>
                   {{ ar: "ملف الاعتماد قيد التدقيق الأكاديمي", fr: "Dossier en cours d'audit pédagogique", en: "Profile under pedagogical audit" }[lang]}
                 </span>
@@ -393,7 +399,7 @@ export default function LoginPage() {
                           placeholder="votre.email@domaine.com"
                           autoComplete="email"
                           autoFocus
-                          className="h-11 rounded-xl bg-white border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-2 focus-visible:ring-[#0c3b2e] focus-visible:border-[#0c3b2e] text-xs sm:text-sm pl-10 pr-4 shadow-2xs"
+                          className="h-11 rounded-lg bg-white border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-1 focus-visible:ring-[#0c3b2e] focus-visible:border-[#0c3b2e] text-xs sm:text-sm pl-10 pr-4 shadow-2xs"
                           data-testid="input-email"
                           {...field}
                         />
@@ -429,7 +435,7 @@ export default function LoginPage() {
                           type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
                           autoComplete="current-password"
-                          className="h-11 rounded-xl bg-white border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-2 focus-visible:ring-[#0c3b2e] focus-visible:border-[#0c3b2e] text-xs sm:text-sm pl-10 pr-10 shadow-2xs"
+                          className="h-11 rounded-lg bg-white border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus-visible:ring-1 focus-visible:ring-[#0c3b2e] focus-visible:border-[#0c3b2e] text-xs sm:text-sm pl-10 pr-10 shadow-2xs"
                           data-testid="input-password"
                           {...field}
                         />
@@ -452,7 +458,7 @@ export default function LoginPage() {
               {/* Submit Button */}
               <Button
                 type="submit"
-                className="w-full h-11.5 rounded-xl font-bold text-sm bg-[#0c3b2e] hover:bg-[#144f3e] active:bg-[#08281d] text-white transition-all shadow-md hover:shadow-lg disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2 mt-2"
+                className="w-full h-11 rounded-lg font-bold text-sm bg-[#0c3b2e] hover:bg-[#144f3e] active:bg-[#08281d] text-white transition-all shadow-sm hover:shadow-md disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2 mt-2"
                 disabled={loginMutation.isPending}
                 style={{ fontFamily: "Cairo, sans-serif" }}
                 data-testid="button-login"
@@ -465,7 +471,7 @@ export default function LoginPage() {
                 ) : (
                   <>
                     <span>{{ ar: "تسجيل الدخول", fr: "Se connecter", en: "Sign In" }[lang]}</span>
-                    {isRTL ? <ArrowLeft className="w-4 h-4 text-[#e5b858]" /> : <ArrowRight className="w-4 h-4 text-[#e5b858]" />}
+                    {isRTL ? <ArrowLeft className="w-4 h-4 text-[#d4af37]" /> : <ArrowRight className="w-4 h-4 text-[#d4af37]" />}
                   </>
                 )}
               </Button>
@@ -490,7 +496,7 @@ export default function LoginPage() {
 
         {/* Modal: Forgot Password */}
         <Dialog open={showForgotModal} onOpenChange={setShowForgotModal}>
-          <DialogContent className="max-w-md bg-white border border-neutral-200 rounded-2xl shadow-xl p-6">
+          <DialogContent className="max-w-md bg-white border border-neutral-200 rounded-xl shadow-xl p-6">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base font-bold text-neutral-900" style={{ fontFamily: "Cairo, sans-serif" }}>
                 <KeyRound className="w-5 h-5 text-[#0c3b2e]" />
@@ -517,7 +523,7 @@ export default function LoginPage() {
                   placeholder="votre.email@domaine.com"
                   required
                   disabled={forgotStep === 2}
-                  className="text-xs h-10 rounded-xl bg-white border-neutral-300 focus-visible:ring-[#0c3b2e]"
+                  className="text-xs h-10 rounded-lg bg-white border-neutral-300 focus-visible:ring-[#0c3b2e]"
                 />
               </div>
 
@@ -534,7 +540,7 @@ export default function LoginPage() {
                     required
                     minLength={6}
                     autoFocus
-                    className="text-xs h-10 rounded-xl bg-white border-neutral-300 focus-visible:ring-[#0c3b2e]"
+                    className="text-xs h-10 rounded-lg bg-white border-neutral-300 focus-visible:ring-[#0c3b2e]"
                   />
                 </div>
               )}
@@ -542,7 +548,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={isSubmittingForgot}
-                className="w-full bg-[#0c3b2e] hover:bg-[#144f3e] text-white font-bold text-xs h-10 rounded-xl shadow-xs"
+                className="w-full bg-[#0c3b2e] hover:bg-[#144f3e] text-white font-bold text-xs h-10 rounded-lg shadow-xs"
                 style={{ fontFamily: "Cairo, sans-serif" }}
               >
                 {isSubmittingForgot ? (
@@ -561,7 +567,7 @@ export default function LoginPage() {
         </Dialog>
 
         {/* Footer info */}
-        <div className="text-center text-[11px] text-neutral-400 mt-6">
+        <div className="text-center text-[11px] text-neutral-500 mt-6">
           © {new Date().getFullYear()} منصة التميز الرقمي · Digital Tamayuz Platform
         </div>
       </div>
