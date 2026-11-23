@@ -121,6 +121,7 @@ export const GetMarketplaceQueryParams = zod.object({
   minPrice: zod.coerce.number().optional(),
   maxPrice: zod.coerce.number().optional(),
   sortBy: zod.enum(["newest", "popular", "price_asc", "price_desc"]).optional(),
+  limit: zod.coerce.number().optional(),
 });
 
 export const GetMarketplaceResponseItem = zod
@@ -166,6 +167,8 @@ export const GetMarketplaceResponseItem = zod
       isEnrolled: zod.boolean(),
       isPurchased: zod.boolean(),
       lessonCount: zod.number(),
+      avgRating: zod.number().nullable(),
+      reviewCount: zod.number(),
     }),
   );
 export const GetMarketplaceResponse = zod.array(GetMarketplaceResponseItem);
@@ -239,6 +242,8 @@ export const GetMarketplaceCourseResponse = zod
   .and(
     zod.object({
       lessonCount: zod.number(),
+      avgRating: zod.number().nullable(),
+      reviewCount: zod.number(),
     }),
   );
 

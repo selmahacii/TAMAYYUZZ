@@ -52,7 +52,15 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      // Keep the raw bytes around so the payments webhook can verify an HMAC
+      // signature computed over the exact payload the gateway sent.
+      (req as Request & { rawBody?: Buffer }).rawBody = buf;
+    },
+  }),
+);
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/uploads", express.static(UPLOADS_DIR));

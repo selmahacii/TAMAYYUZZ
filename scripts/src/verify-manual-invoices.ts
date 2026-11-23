@@ -7,7 +7,7 @@ async function verifyManualInvoice() {
   console.log("🔍 Verifying Manual Invoice Creation & Management");
   console.log("================================================");
 
-  const token = await login("superadmin@tamayuz.com", "Admin@2026!");
+  const token = await login("superadmin@tamayuz.com", process.env.ADMIN_SEED_PASSWORD ?? (() => { throw new Error("Set ADMIN_SEED_PASSWORD to the password printed by the seed script"); })());
   
   // 1. Get student users
   console.log("\n[1] Fetching registered users...");

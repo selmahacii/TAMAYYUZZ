@@ -1,5 +1,6 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import { eq, and } from "drizzle-orm";
+import { timingSafeEqual, createHmac } from "node:crypto";
 import {
   db,
   purchasesTable,
@@ -11,8 +12,30 @@ import {
 } from "@workspace/db";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import { createNotification } from "./notifications";
+import { logger } from "../lib/logger";
+import { getPlatformSettings } from "../lib/settingsCache";
 
 const router: IRouter = Router();
+
+if (!process.env.PAYMENT_WEBHOOK_SECRET && process.env.NODE_ENV === "production") {
+  throw new Error("PAYMENT_WEBHOOK_SECRET must be set in production — refusing to start with an unverifiable payment webhook.");
+}
+if (!process.env.PAYMENT_WEBHOOK_SECRET) {
+  console.warn("[payments] PAYMENT_WEBHOOK_SECRET is not set — using an insecure default. Set it before deploying.");
+}
+const WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET ?? "dev-webhook-secret-change-me";
+
+function isValidWebhookSignature(req: Request): boolean {
+  const signature = req.headers["x-webhook-signature"];
+  const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+  if (typeof signature !== "string" || !rawBody) return false;
+
+  const expected = createHmac("sha256", WEBHOOK_SECRET).update(rawBody).digest("hex");
+  const expectedBuf = Buffer.from(expected, "utf8");
+  const signatureBuf = Buffer.from(signature, "utf8");
+  if (expectedBuf.length !== signatureBuf.length) return false;
+  return timingSafeEqual(expectedBuf, signatureBuf);
+}
 
 // POST /api/payments/checkout - Initiates an automated checkout session
 router.post("/payments/checkout", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -93,6 +116,12 @@ router.post("/payments/checkout", requireAuth, async (req: AuthenticatedRequest,
 
 // POST /api/payments/webhook - Webhook listener for IPN / payment callbacks
 router.post("/payments/webhook", async (req, res): Promise<void> => {
+  if (!isValidWebhookSignature(req)) {
+    logger.warn({ ip: req.ip }, "Rejected payment webhook: invalid or missing signature");
+    res.status(401).json({ error: "Invalid webhook signature" });
+    return;
+  }
+
   try {
     const { event, data } = req.body as {
       event?: string;
@@ -152,9 +181,10 @@ router.post("/payments/webhook", async (req, res): Promise<void> => {
       // 4. Generate coach commission
       const [course] = await db.select().from(coursesTable).where(eq(coursesTable.id, purchase.courseId));
       if (course && course.coachId) {
+        const settings = await getPlatformSettings();
+        const ratePercent = parseFloat(settings.defaultCommissionRate) || 70;
         const purchaseAmount = parseFloat(purchase.amount);
-        const commissionRate = 0.7; // 70%
-        const commissionAmount = (purchaseAmount * commissionRate).toFixed(2);
+        const commissionAmount = (purchaseAmount * (ratePercent / 100)).toFixed(2);
 
         await db.insert(commissionsTable).values({
           coachId: course.coachId,
@@ -162,7 +192,7 @@ router.post("/payments/webhook", async (req, res): Promise<void> => {
           purchaseId: purchase.id,
           amount: commissionAmount,
           currency: purchase.currency,
-          ratePercent: "70.00",
+          ratePercent: ratePercent.toFixed(2),
           isPaid: false,
           status: "pending",
         });
@@ -211,6 +241,13 @@ router.get("/payments/:id/status", requireAuth, async (req: AuthenticatedRequest
   const [purchase] = await db.select().from(purchasesTable).where(eq(purchasesTable.id, id));
   if (!purchase) {
     res.status(404).json({ error: "Payment not found" });
+    return;
+  }
+
+  const isOwner = purchase.userId === req.user!.id;
+  const isAdmin = req.user!.role === "admin";
+  if (!isOwner && !isAdmin) {
+    res.status(403).json({ error: "Forbidden" });
     return;
   }
 

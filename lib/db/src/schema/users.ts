@@ -37,6 +37,8 @@ export const usersTable = pgTable("users", {
   teachingPlan: text("teaching_plan"),
   interests: json("interests").$type<string[]>().notNull().default([]),
   tokenVersion: integer("token_version").notNull().default(1),
+  passwordResetTokenHash: text("password_reset_token_hash"),
+  passwordResetExpiresAt: timestamp("password_reset_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

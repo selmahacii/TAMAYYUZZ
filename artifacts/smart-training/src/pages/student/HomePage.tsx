@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import {
   useGetMarketplace,
+  useGetCategories,
   getGetMarketplaceQueryKey,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/context/AuthContext";
@@ -33,12 +34,15 @@ export default function StudentHomePage() {
   const [activeSidebarKey, setActiveSidebarKey] = useState("home");
 
   const { data: rawCourses, isLoading } = useGetMarketplace(
-    { limit: 20, sortBy: "popular" },
-    { query: { queryKey: getGetMarketplaceQueryKey({ limit: 20, sortBy: "popular" }) } }
+    { limit: 30, sortBy: "popular" },
+    { query: { queryKey: getGetMarketplaceQueryKey({ limit: 30, sortBy: "popular" }) } }
   );
   const allCourses = Array.isArray(rawCourses) ? rawCourses : [];
 
-  // Countries for selector bar with full i18n support
+  const { data: rawCategories } = useGetCategories();
+  const categories = Array.isArray(rawCategories) ? rawCategories : [];
+
+  // Countries for selector bar with full dynamic i18n support
   const countries: CountryOption[] = [
     { id: "dz", name: { ar: "الجزائر", fr: "Algérie", en: "Algeria" }, flag: <FlagDZ className="w-4 h-3 rounded-[2px]" /> },
     { id: "sa", name: { ar: "السعودية", fr: "Arabie Saoudite", en: "Saudi Arabia" }, flag: <FlagSA className="w-4 h-3 rounded-[2px]" /> },
@@ -62,67 +66,70 @@ export default function StudentHomePage() {
     { key: "help", label: { ar: "مركز المساعدة", fr: "Centre d'aide", en: "Help Center" }[lang], icon: Headphones, href: "/help" },
   ];
 
-  // The 4 reference courses matching the design and database
-  const targetCourses = [
-    {
-      id: 24,
-      title: {
-        ar: "أساسيات التربية الحديثة",
-        fr: "Fondamentaux de la Pédagogie Moderne",
-        en: "Fundamentals of Modern Parenting & Education",
-      }[lang],
-      badgeText: { ar: "مدفوع", fr: "Payant", en: "Paid" }[lang],
-      isPaid: true,
-      rating: "4.9",
-      subLevel: { ar: "مستوى مبتدئ", fr: "Niveau débutant", en: "Beginner" }[lang],
-      imageUrl: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=800&q=80",
+  const countryFlagMap: Record<string, React.ReactNode> = {
+    dz: <FlagDZ className="w-3.5 h-2.5 rounded-[1px]" />,
+    sa: <FlagSA className="w-3.5 h-2.5 rounded-[1px]" />,
+    eg: <FlagEG className="w-3.5 h-2.5 rounded-[1px]" />,
+    ma: <FlagMA className="w-3.5 h-2.5 rounded-[1px]" />,
+    tn: <FlagTN className="w-3.5 h-2.5 rounded-[1px]" />,
+    kw: <FlagKW className="w-3.5 h-2.5 rounded-[1px]" />,
+    jo: <FlagJO className="w-3.5 h-2.5 rounded-[1px]" />,
+    all: <Globe className="w-3.5 h-2.5 text-neutral-500" />,
+  };
+
+  const countryNameMap: Record<string, { ar: string; fr: string; en: string }> = {
+    dz: { ar: "الجزائر", fr: "Algérie", en: "Algeria" },
+    sa: { ar: "السعودية", fr: "Arabie Saoudite", en: "Saudi Arabia" },
+    eg: { ar: "مصر", fr: "Égypte", en: "Egypt" },
+    ma: { ar: "المغرب", fr: "Maroc", en: "Morocco" },
+    tn: { ar: "تونس", fr: "Tunisie", en: "Tunisia" },
+    kw: { ar: "الكويت", fr: "Koweït", en: "Kuwait" },
+    jo: { ar: "الأردن", fr: "Jordanie", en: "Jordan" },
+    all: { ar: "دولي", fr: "International", en: "Global" },
+  };
+
+  const levelLabels: Record<string, { ar: string; fr: string; en: string }> = {
+    beginner: { ar: "مستوى مبتدئ", fr: "Niveau débutant", en: "Beginner" },
+    intermediate: { ar: "مستوى متوسط", fr: "Niveau intermédiaire", en: "Intermediate" },
+    advanced: { ar: "مستوى متقدم", fr: "Niveau avancé", en: "Advanced" },
+  };
+
+  // Translations for reference courses
+  const canonicalTitles: Record<number, { ar: string; fr: string; en: string }> = {
+    24: {
+      ar: "أساسيات التربية الحديثة",
+      fr: "Fondamentaux de la Pédagogie Moderne",
+      en: "Fundamentals of Modern Parenting & Education",
     },
-    {
-      id: 25,
-      title: {
-        ar: "مهارات الكتابة الأكاديمية",
-        fr: "Méthodologie de la Rédaction Académique",
-        en: "Academic Writing & Research Skills",
-      }[lang],
-      badgeText: { ar: "مجاني", fr: "Gratuit", en: "Free" }[lang],
-      isPaid: false,
-      rating: "4.8",
-      subLevel: { ar: "مستوى متوسط", fr: "Niveau intermédiaire", en: "Intermediate" }[lang],
-      imageUrl: "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=800&q=80",
+    25: {
+      ar: "مهارات الكتابة الأكاديمية",
+      fr: "Méthodologie de la Rédaction Académique",
+      en: "Academic Writing & Research Skills",
     },
-    {
-      id: 26,
-      title: {
-        ar: "مهارات التحليل الإحصائي",
-        fr: "Maîtrise de l'Analyse Statistique de Données",
-        en: "Statistical Data Analysis Mastery",
-      }[lang],
-      badgeText: { ar: "مدفوع", fr: "Payant", en: "Paid" }[lang],
-      isPaid: true,
-      rating: "4.7",
-      subLevel: { ar: "مستوى متقدم", fr: "Niveau avancé", en: "Advanced" }[lang],
-      imageUrl: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
+    26: {
+      ar: "مهارات التحليل الإحصائي",
+      fr: "Maîtrise de l'Analyse Statistique de Données",
+      en: "Statistical Data Analysis Mastery",
     },
-    {
-      id: 27,
-      title: {
-        ar: "منهجية البحث العلمي",
-        fr: "Méthodologie de la Recherche Scientifique",
-        en: "Scientific Research Methodology",
-      }[lang],
-      badgeText: { ar: "مجاني", fr: "Gratuit", en: "Free" }[lang],
-      isPaid: false,
-      rating: "4.8",
-      subLevel: { ar: "لجميع الجامعات", fr: "Toutes universités", en: "All universities" }[lang],
-      imageUrl: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=800&q=80",
+    27: {
+      ar: "منهجية البحث العلمي",
+      fr: "Méthodologie de la Recherche Scientifique",
+      en: "Scientific Research Methodology",
     },
-  ];
+  };
+
+  // Dynamically filter courses based on the user's active selected country
+  const displayedCourses = useMemo(() => {
+    return allCourses.filter((course: any) => {
+      const c = (course.country || "dz").toLowerCase();
+      if (selectedCountry === "other" || selectedCountry === "all") return true;
+      return c === selectedCountry.toLowerCase() || c === "all";
+    });
+  }, [allCourses, selectedCountry]);
 
   const handleCourseClick = (id: number) => {
     setLocation(`/course/${id}`);
   };
-
-  const ArrowIcon = isRTL ? ArrowLeft : ArrowRight;
 
   return (
     <StudentLayout>
@@ -414,67 +421,107 @@ export default function StudentHomePage() {
                 </button>
               </div>
 
-              {/* 4 Course Cards Grid matching the exact reference UI */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                {targetCourses.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => handleCourseClick(item.id)}
-                    className="bg-white border border-neutral-200/90 rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer group flex flex-col"
+              {/* Dynamic Course Cards Grid Filtered by Selected Country */}
+              {displayedCourses.length === 0 ? (
+                <div className="bg-white border border-neutral-200/90 rounded-2xl p-8 text-center shadow-2xs">
+                  <Globe className="w-10 h-10 text-neutral-300 mx-auto mb-3" />
+                  <h3 className="text-sm font-bold text-neutral-800 mb-1" style={{ fontFamily: isRTL ? "Cairo, sans-serif" : "inherit" }}>
+                    {{
+                      ar: "لا توجد دورات مخصصة لهذا البلد حالياً",
+                      fr: "Aucune formation spécifique à ce pays pour le moment",
+                      en: "No courses currently available specifically for this country",
+                    }[lang]}
+                  </h3>
+                  <p className="text-xs text-neutral-500 mb-4 max-w-md mx-auto" style={{ fontFamily: isRTL ? "Cairo, sans-serif" : "inherit" }}>
+                    {{
+                      ar: "يمكنك استكشاف الدورات المتاحة لجميع البلدان أو اختيار الجزائر لتصفح الكتالوج الكامل.",
+                      fr: "Vous pouvez explorer nos formations internationales ou sélectionner l'Algérie pour voir le catalogue complet.",
+                      en: "You can explore international courses or select Algeria to browse the full catalogue.",
+                    }[lang]}
+                  </p>
+                  <button
+                    onClick={() => setSelectedCountry("dz")}
+                    className="px-4 py-2 rounded-xl bg-[#0c3b2e] text-white text-xs font-bold hover:bg-[#144f3e] transition-colors cursor-pointer shadow-2xs"
+                    style={{ fontFamily: isRTL ? "Cairo, sans-serif" : "inherit" }}
                   >
-                    {/* Course Thumbnail with Tag Badge */}
-                    <div className="relative aspect-video w-full overflow-hidden bg-neutral-100">
-                      <img
-                        src={item.imageUrl}
-                        alt={item.title}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
-                      />
-                      {/* Paid / Free badge */}
-                      <div className={`absolute top-2.5 z-10 ${isRTL ? "right-2.5" : "left-2.5"}`}>
-                        <span
-                          className={`px-2.5 py-0.5 rounded-md text-[11px] font-black shadow-xs ${
-                            item.isPaid
-                              ? "bg-[#c59336] text-white"
-                              : "bg-[#1b7348] text-white"
-                          }`}
-                          style={{ fontFamily: isRTL ? "Cairo, sans-serif" : "inherit" }}
-                        >
-                          {item.badgeText}
-                        </span>
-                      </div>
-                    </div>
+                    {{ ar: "عرض دورات الجزائر (الكتالوج الكامل)", fr: "Voir les cours (Algérie)", en: "View Algeria Courses" }[lang]}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                  {displayedCourses.slice(0, 4).map((course: any) => {
+                    const cCountry = (course.country || "dz").toLowerCase();
+                    const flag = countryFlagMap[cCountry] ?? countryFlagMap["dz"];
+                    const countryLabel = countryNameMap[cCountry]?.[lang] ?? countryNameMap["dz"][lang];
+                    const levelLabel = levelLabels[course.level]?.[lang] ?? course.level;
+                    const isPaid = !course.isFree && parseFloat(course.price || "0") > 0;
+                    const title = canonicalTitles[course.id]?.[lang] ?? course.title;
 
-                    {/* Course Information */}
-                    <div className="p-3.5 flex-1 flex flex-col justify-between">
-                      <h4
-                        className="font-bold text-neutral-900 text-xs sm:text-sm line-clamp-2 leading-snug mb-3 group-hover:text-[#0c3b2e] transition-colors"
-                        style={{ fontFamily: isRTL ? "Cairo, sans-serif" : "inherit" }}
+                    return (
+                      <div
+                        key={course.id}
+                        onClick={() => handleCourseClick(course.id)}
+                        className="bg-white border border-neutral-200/90 rounded-2xl overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer group flex flex-col"
                       >
-                        {item.title}
-                      </h4>
-
-                      {/* Bottom Row: Rating, Level & Country Flag */}
-                      <div className="flex items-center justify-between text-xs text-neutral-600 pt-2 border-t border-neutral-100">
-                        {/* Rating */}
-                        <div className="flex items-center gap-1 font-bold text-neutral-800">
-                          <span className="text-[#d4af37] font-black">★</span>
-                          <span>{item.rating}</span>
+                        {/* Course Thumbnail with Tag Badge */}
+                        <div className="relative aspect-video w-full overflow-hidden bg-neutral-100">
+                          {course.imageUrl ? (
+                            <img
+                              src={course.imageUrl}
+                              alt={title}
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#0c3b2e] to-[#144f3e]">
+                              <GraduationCap className="w-10 h-10 text-white/40" />
+                            </div>
+                          )}
+                          {/* Paid / Free badge */}
+                          <div className={`absolute top-2.5 z-10 ${isRTL ? "right-2.5" : "left-2.5"}`}>
+                            <span
+                              className={`px-2.5 py-0.5 rounded-md text-[11px] font-black shadow-xs ${
+                                isPaid
+                                  ? "bg-[#c59336] text-white"
+                                  : "bg-[#1b7348] text-white"
+                              }`}
+                              style={{ fontFamily: isRTL ? "Cairo, sans-serif" : "inherit" }}
+                            >
+                              {isPaid ? { ar: "مدفوع", fr: "Payant", en: "Paid" }[lang] : { ar: "مجاني", fr: "Gratuit", en: "Free" }[lang]}
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Country Flag & Level Sub-badge */}
-                        <div className="flex items-center gap-1.5 font-medium text-neutral-500 text-[11px]">
-                          <span>{item.subLevel}</span>
-                          <FlagDZ className="w-3.5 h-2.5 rounded-[1px]" />
-                          <span className="text-neutral-700 font-bold">
-                            {{ ar: "الجزائر", fr: "Algérie", en: "Algeria" }[lang]}
-                          </span>
+                        {/* Course Information */}
+                        <div className="p-3.5 flex-1 flex flex-col justify-between">
+                          <h4
+                            className="font-bold text-neutral-900 text-xs sm:text-sm line-clamp-2 leading-snug mb-3 group-hover:text-[#0c3b2e] transition-colors"
+                            style={{ fontFamily: isRTL ? "Cairo, sans-serif" : "inherit" }}
+                          >
+                            {title}
+                          </h4>
+
+                          {/* Bottom Row: Rating, Level & Country Flag */}
+                          <div className="flex items-center justify-between text-xs text-neutral-600 pt-2 border-t border-neutral-100">
+                            {/* Rating */}
+                            <div className="flex items-center gap-1 font-bold text-neutral-800">
+                              <span className="text-[#d4af37] font-black">★</span>
+                              <span>{course.avgRating ? Number(course.avgRating).toFixed(1) : "4.8"}</span>
+                            </div>
+
+                            {/* Country Flag & Level Sub-badge */}
+                            <div className="flex items-center gap-1.5 font-medium text-neutral-500 text-[11px]">
+                              <span>{levelLabel}</span>
+                              {flag}
+                              <span className="text-neutral-700 font-bold">{countryLabel}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           </main>
 

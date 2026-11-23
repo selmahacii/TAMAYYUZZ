@@ -7,7 +7,7 @@ async function verifyCoachesAndCategories() {
   console.log("🔍 Verifying Direct Coach & Category Creation API");
   console.log("=================================================");
 
-  const token = await login("superadmin@tamayuz.com", "Admin@2026!");
+  const token = await login("superadmin@tamayuz.com", process.env.ADMIN_SEED_PASSWORD ?? (() => { throw new Error("Set ADMIN_SEED_PASSWORD to the password printed by the seed script"); })());
   
   // 1. Create Coach Account
   console.log("\n[1] Testing direct Coach creation by Admin...");

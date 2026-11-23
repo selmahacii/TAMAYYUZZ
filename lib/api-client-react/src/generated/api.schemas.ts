@@ -183,6 +183,8 @@ export type MarketplaceCourse = Course & {
   isEnrolled: boolean;
   isPurchased: boolean;
   lessonCount: number;
+  avgRating: number | null;
+  reviewCount: number;
 };
 
 export type RecommendedCourse = Course & {
@@ -191,6 +193,8 @@ export type RecommendedCourse = Course & {
 
 export type MarketplaceCourseDetail = CourseDetail & {
   lessonCount: number;
+  avgRating: number | null;
+  reviewCount: number;
 };
 
 export interface Lesson {
@@ -564,6 +568,7 @@ export type GetMarketplaceParams = {
   minPrice?: number;
   maxPrice?: number;
   sortBy?: GetMarketplaceSortBy;
+  limit?: number;
 };
 
 export type GetMarketplaceLevel =

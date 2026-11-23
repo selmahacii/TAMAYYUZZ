@@ -1,12 +1,13 @@
 import { Link } from "wouter";
 import { useI18n } from "@/i18n";
-import { Clock, Users, Star, Lock, Sparkles, Briefcase, Megaphone, Wallet, Laptop, MessageCircle, Rocket, BarChart3, Palette, Sprout, BookOpen, type LucideIcon } from "lucide-react";
+import { Clock, Users, Star, Lock, CheckCircle2, Briefcase, Megaphone, Wallet, Laptop, MessageCircle, Rocket, BarChart3, Palette, Sprout, BookOpen, type LucideIcon } from "lucide-react";
 
 interface Course {
   id: number;
   title: string;
   description: string;
   category: string;
+  country?: string | null;
   imageUrl?: string | null;
   coachName: string;
   isPublished: boolean;
@@ -19,6 +20,17 @@ interface Course {
   isEnrolled?: boolean;
   isPurchased?: boolean;
 }
+
+const countryFlagMap: Record<string, string> = {
+  dz: "🇩🇿",
+  sa: "🇸🇦",
+  eg: "🇪🇬",
+  ma: "🇲🇦",
+  tn: "🇹🇳",
+  kw: "🇰🇼",
+  jo: "🇯🇴",
+  all: "🌐",
+};
 
 interface CourseCardProps {
   course: Course;
@@ -51,11 +63,11 @@ const levelColors: Record<string, string> = {
 };
 
 const gradients = [
-  "from-violet-500 via-purple-600 to-indigo-700",
-  "from-pink-500 via-rose-600 to-red-700",
-  "from-amber-500 via-orange-500 to-red-600",
-  "from-emerald-500 via-teal-500 to-cyan-600",
-  "from-blue-500 via-indigo-500 to-violet-600",
+  "from-emerald-800 via-teal-900 to-slate-900",
+  "from-slate-800 via-emerald-950 to-neutral-900",
+  "from-neutral-800 via-stone-900 to-emerald-950",
+  "from-emerald-900 via-teal-950 to-neutral-950",
+  "from-slate-900 via-neutral-900 to-emerald-950",
 ];
 
 function getGradient(id: number) { return gradients[id % gradients.length]; }
@@ -64,7 +76,7 @@ function PriceBadge({ isFree, price, currency, isEnrolled, isPurchased, lang }: 
   if (isEnrolled || isPurchased) {
     return (
       <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-2xs">
-        <Sparkles className="w-3 h-3 text-emerald-600" />
+        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
         {{ ar: "مسجّلة", fr: "Inscrite", en: "Enrolled" }[lang]}
       </span>
     );
@@ -88,6 +100,7 @@ export function CourseCard({ course, href, showPurchaseState }: CourseCardProps)
   const { lang } = useI18n();
   const cat = categoryConfig[course.category];
   const CatIcon = cat?.icon ?? BookOpen;
+  const flag = course.country ? countryFlagMap[course.country.toLowerCase()] : null;
 
   const cardContent = (
     <div
@@ -105,10 +118,15 @@ export function CourseCard({ course, href, showPurchaseState }: CourseCardProps)
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
 
-        <div className="absolute top-3 left-3">
+        <div className="absolute top-3 left-3 flex items-center gap-1.5">
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${cat?.bg ?? "bg-gray-100"} ${cat?.color ?? "text-gray-700"} shadow-sm`}>
             {course.category}
           </span>
+          {flag && (
+            <span className="text-xs bg-black/60 px-2 py-0.5 rounded-full text-white backdrop-blur-xs">
+              {flag}
+            </span>
+          )}
         </div>
 
         <div className="absolute top-3 right-3">

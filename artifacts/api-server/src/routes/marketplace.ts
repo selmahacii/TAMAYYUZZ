@@ -1,8 +1,19 @@
 import { Router } from "express";
-import { eq, and, like, sql, count, gte, lte } from "drizzle-orm";
-import { db, coursesTable, usersTable, enrollmentsTable, lessonsTable, purchasesTable, chaptersTable } from "@workspace/db";
+import { eq, and, like, sql, count, avg, gte, lte } from "drizzle-orm";
+import { db, coursesTable, usersTable, enrollmentsTable, lessonsTable, purchasesTable, chaptersTable, courseReviewsTable } from "@workspace/db";
 import { formatCourse } from "./courses";
 import { JWT_SECRET } from "../middlewares/auth";
+
+async function getReviewStats(courseId: number): Promise<{ avgRating: number | null; reviewCount: number }> {
+  const [row] = await db
+    .select({ avgRating: avg(courseReviewsTable.rating), reviewCount: count(courseReviewsTable.id) })
+    .from(courseReviewsTable)
+    .where(eq(courseReviewsTable.courseId, courseId));
+  return {
+    avgRating: row?.avgRating ? Math.round(Number(row.avgRating) * 10) / 10 : null,
+    reviewCount: row?.reviewCount ?? 0,
+  };
+}
 
 const router = Router();
 
@@ -19,7 +30,7 @@ async function getAuthUserId(authHeader: string | undefined): Promise<number | n
 }
 
 router.get("/marketplace", async (req, res): Promise<void> => {
-  const { search, category, level, isFree, minPrice, maxPrice, sortBy } = req.query as Record<string, string>;
+  const { search, category, level, isFree, minPrice, maxPrice, sortBy, limit } = req.query as Record<string, string>;
 
   const conditions = [eq(coursesTable.isPublished, true)];
   if (search) conditions.push(like(coursesTable.title, `%${search}%`));
@@ -32,13 +43,14 @@ router.get("/marketplace", async (req, res): Promise<void> => {
   if (minPrice) conditions.push(gte(coursesTable.price, minPrice));
   if (maxPrice) conditions.push(lte(coursesTable.price, maxPrice));
 
-  let orderBy = coursesTable.createdAt;
-  let orderDir: "asc" | "desc" = "desc";
-  if (sortBy === "popular") { orderDir = "desc"; }
-  else if (sortBy === "price_asc") { orderDir = "asc"; }
-  else if (sortBy === "price_desc") { orderDir = "desc"; }
+  let orderByClause = sql`${coursesTable.createdAt} desc`;
+  if (sortBy === "popular") { orderByClause = sql`count(${enrollmentsTable.id}) desc`; }
+  else if (sortBy === "price_asc") { orderByClause = sql`${coursesTable.price} asc`; }
+  else if (sortBy === "price_desc") { orderByClause = sql`${coursesTable.price} desc`; }
 
-  const courses = await db
+  const parsedLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 0, 1), 100) : undefined;
+
+  let query = db
     .select({
       course: coursesTable,
       coach: usersTable,
@@ -49,7 +61,12 @@ router.get("/marketplace", async (req, res): Promise<void> => {
     .leftJoin(enrollmentsTable, eq(coursesTable.id, enrollmentsTable.courseId))
     .where(and(...conditions))
     .groupBy(coursesTable.id, usersTable.id)
-    .orderBy(orderDir === "desc" ? sql`${orderBy} desc` : sql`${orderBy} asc`);
+    .orderBy(orderByClause)
+    .$dynamic();
+
+  if (parsedLimit) query = query.limit(parsedLimit);
+
+  const courses = await query;
 
   const userId = await getAuthUserId(req.headers.authorization);
 
@@ -75,11 +92,15 @@ router.get("/marketplace", async (req, res): Promise<void> => {
         isPurchased = !!purchase;
       }
 
+      const { avgRating, reviewCount } = await getReviewStats(course.id);
+
       return {
         ...formatCourse(course, coach.name, enrollmentCount),
         isEnrolled,
         isPurchased,
         lessonCount: lessonCount ?? 0,
+        avgRating,
+        reviewCount,
       };
     })
   );
@@ -132,8 +153,12 @@ router.get("/marketplace/:id", async (req, res): Promise<void> => {
     isPurchased = !!purchase;
   }
 
+  const { avgRating, reviewCount } = await getReviewStats(id);
+
   res.json({
     ...formatCourse(row.course, row.coach.name, row.enrollmentCount),
+    avgRating,
+    reviewCount,
     lessons: lessons.map((l) => ({
       id: l.id,
       courseId: l.courseId,

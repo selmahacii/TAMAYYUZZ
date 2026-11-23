@@ -14,6 +14,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, BookOpen, Users, Search, Edit, Trash2, List, CreditCard, Clock } from "lucide-react";
 
+const countryFlagMap: Record<string, { ar: string; fr: string; en: string; flag: string }> = {
+  dz: { ar: "الجزائر", fr: "Algérie", en: "Algeria", flag: "🇩🇿" },
+  sa: { ar: "السعودية", fr: "Arabie Saoudite", en: "Saudi Arabia", flag: "🇸🇦" },
+  eg: { ar: "مصر", fr: "Égypte", en: "Egypt", flag: "🇪🇬" },
+  ma: { ar: "المغرب", fr: "Maroc", en: "Morocco", flag: "🇲🇦" },
+  tn: { ar: "تونس", fr: "Tunisie", en: "Tunisia", flag: "🇹🇳" },
+  kw: { ar: "الكويت", fr: "Koweït", en: "Kuwait", flag: "🇰🇼" },
+  jo: { ar: "الأردن", fr: "Jordanie", en: "Jordan", flag: "🇯🇴" },
+  all: { ar: "جميع الدول", fr: "Tous pays", en: "All countries", flag: "🌐" },
+};
+
 export default function CoachCoursesPage() {
   const { user } = useAuth();
   const { lang } = useI18n();
@@ -115,6 +126,17 @@ export default function CoachCoursesPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-foreground text-sm truncate">{course.title}</h3>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 capitalize">{course.category}</span>
+                  {(() => {
+                    const cKey = (((course as any).country as string) || "dz").toLowerCase();
+                    const meta = countryFlagMap[cKey];
+                    if (!meta) return null;
+                    return (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                        <span>{meta.flag}</span>
+                        <span>{meta[lang]}</span>
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                   <span className="flex items-center gap-1"><Users className="w-3 h-3" />{course.enrollmentCount} {{ ar: "طالبة", fr: "étudiantes", en: "students" }[lang]}</span>

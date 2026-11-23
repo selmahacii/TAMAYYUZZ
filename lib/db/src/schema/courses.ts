@@ -38,6 +38,7 @@ export const coursesTable = pgTable("courses", {
   subtitle: text("subtitle"),
   description: text("description").notNull(),
   category: text("category").notNull(),
+  country: text("country").notNull().default("dz"),
   imageUrl: text("image_url"),
   language: text("language").notNull().default("fr"),
   tags: json("tags").$type<string[]>().notNull().default([]),

@@ -7,7 +7,7 @@ async function verifyCertificateTemplates() {
   console.log("🔍 Verifying Certificate Templates & Packed Config");
   console.log("================================================");
 
-  const token = await login("superadmin@tamayuz.com", "Admin@2026!");
+  const token = await login("superadmin@tamayuz.com", process.env.ADMIN_SEED_PASSWORD ?? (() => { throw new Error("Set ADMIN_SEED_PASSWORD to the password printed by the seed script"); })());
   
   // 1. Create Certificate Template with packed JSON metadata
   console.log("\n[1] Testing POST certificate template with packed config...");

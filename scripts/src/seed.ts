@@ -12,6 +12,12 @@ import {
   certificateTemplatesTable,
 } from "@workspace/db";
 import bcrypt from "bcrypt";
+import { randomBytes } from "node:crypto";
+
+function randomPassword(): string {
+  // 16 hex chars is plenty of entropy for a one-off dev/seed credential, and stays easy to copy/paste.
+  return randomBytes(12).toString("hex");
+}
 
 async function main() {
   console.log("Seeding started...");
@@ -21,26 +27,40 @@ async function main() {
     process.env.DATABASE_URL = "postgresql://postgres@127.0.0.1:5432/tamayuz";
   }
 
-  // Clear existing data in reverse dependency order
-  console.log("Cleaning old database records...");
-  await db.delete(progressTable);
-  await db.delete(enrollmentsTable);
-  await db.delete(lessonsTable);
-  await db.delete(chaptersTable);
-  await db.delete(couponsTable);
-  await db.delete(announcementsTable);
-  await db.delete(knowledgeBaseTable);
-  await db.delete(certificateTemplatesTable);
-  await db.delete(coursesTable);
-  await db.delete(usersTable);
+  const isLocalDb = /^postgresql:\/\/[^@]*@(127\.0\.0\.1|localhost)[:/]/.test(process.env.DATABASE_URL);
+  if (!isLocalDb && process.env.ALLOW_SEED_NON_LOCAL !== "true") {
+    console.error(
+      "Refusing to run: DATABASE_URL does not look like a local database. " +
+      "This script DELETES all existing data. If you really mean to seed this database, " +
+      "set ALLOW_SEED_NON_LOCAL=true explicitly.",
+    );
+    process.exit(1);
+  }
 
   console.log("Creating users...");
-  const hashedPassword1 = await bcrypt.hash("Admin@2026!", 10);
-  const hashedPassword2 = await bcrypt.hash("Coach123!", 10);
-  const hashedPassword3 = await bcrypt.hash("Student123!", 10);
+  const adminPassword = process.env.ADMIN_SEED_PASSWORD ?? randomPassword();
+  const coachPassword = process.env.COACH_SEED_PASSWORD ?? randomPassword();
+  const studentPassword = process.env.STUDENT_SEED_PASSWORD ?? randomPassword();
+  const hashedPassword1 = await bcrypt.hash(adminPassword, 10);
+  const hashedPassword2 = await bcrypt.hash(coachPassword, 10);
+  const hashedPassword3 = await bcrypt.hash(studentPassword, 10);
+
+  await db.transaction(async (tx) => {
+  // Clear existing data in reverse dependency order
+  console.log("Cleaning old database records...");
+  await tx.delete(progressTable);
+  await tx.delete(enrollmentsTable);
+  await tx.delete(lessonsTable);
+  await tx.delete(chaptersTable);
+  await tx.delete(couponsTable);
+  await tx.delete(announcementsTable);
+  await tx.delete(knowledgeBaseTable);
+  await tx.delete(certificateTemplatesTable);
+  await tx.delete(coursesTable);
+  await tx.delete(usersTable);
 
   // 1. Super Admin
-  const [admin] = await db.insert(usersTable).values({
+  const [admin] = await tx.insert(usersTable).values({
     name: "Super Admin",
     email: "superadmin@tamayuz.com",
     passwordHash: hashedPassword1,
@@ -49,7 +69,7 @@ async function main() {
   }).returning();
 
   // 2. Approved Coach
-  const [coachAhmed] = await db.insert(usersTable).values({
+  const [coachAhmed] = await tx.insert(usersTable).values({
     name: "Ahmed (Coach Approved)",
     email: "coach.ahmed@tamayuz.com",
     passwordHash: hashedPassword2,
@@ -58,7 +78,7 @@ async function main() {
   }).returning();
 
   // 3. Pending Coach
-  const [coachPending] = await db.insert(usersTable).values({
+  const [coachPending] = await tx.insert(usersTable).values({
     name: "Mohamed (Coach Pending)",
     email: "coach.pending@tamayuz.com",
     passwordHash: hashedPassword2,
@@ -67,7 +87,7 @@ async function main() {
   }).returning();
 
   // 4. Enrolled Student
-  const [studentYassine] = await db.insert(usersTable).values({
+  const [studentYassine] = await tx.insert(usersTable).values({
     name: "Yassine (Enrolled Student)",
     email: "student.yassine@tamayuz.com",
     passwordHash: hashedPassword3,
@@ -76,7 +96,7 @@ async function main() {
   }).returning();
 
   // 5. New Non-Enrolled Student
-  const [studentNew] = await db.insert(usersTable).values({
+  const [studentNew] = await tx.insert(usersTable).values({
     name: "Kamel (New Student)",
     email: "student.new@tamayuz.com",
     passwordHash: hashedPassword3,
@@ -88,7 +108,7 @@ async function main() {
 
   // Create course for Ahmed
   console.log("Creating courses...");
-  const [courseFullstack] = await db.insert(coursesTable).values({
+  const [courseFullstack] = await tx.insert(coursesTable).values({
     title: "Introduction au Développement Web Fullstack",
     description: "Apprenez HTML, CSS, JavaScript, React et Node.js étape par étape pour devenir développeur web fullstack professionnel.",
     category: "Informatique",
@@ -101,7 +121,7 @@ async function main() {
     currency: "DZD",
   }).returning();
 
-  const [courseAI] = await db.insert(coursesTable).values({
+  const [courseAI] = await tx.insert(coursesTable).values({
     title: "Intelligence Artificielle & Prompt Engineering",
     description: "Apprenez à maximiser l'usage des modèles LLMs, créer vos propres agents intelligents et maîtriser le prompting.",
     category: "Intelligence Artificielle",
@@ -118,14 +138,14 @@ async function main() {
 
   // Create Chapters
   console.log("Creating chapters...");
-  const [chapter1] = await db.insert(chaptersTable).values({
+  const [chapter1] = await tx.insert(chaptersTable).values({
     courseId: courseFullstack.id,
     title: "Module 1: Bases du Web (HTML & CSS)",
     description: "Comprendre le fonctionnement du web et styliser des pages statiques avec CSS moderne.",
     order: 1,
   }).returning();
 
-  const [chapter2] = await db.insert(chaptersTable).values({
+  const [chapter2] = await tx.insert(chaptersTable).values({
     courseId: courseFullstack.id,
     title: "Module 2: JavaScript Moderne (ES6+)",
     description: "Manipuler le DOM, comprendre l'asynchronisme et écrire du code dynamique.",
@@ -136,7 +156,7 @@ async function main() {
 
   // Create Lessons
   console.log("Creating lessons...");
-  const [lessonHTML] = await db.insert(lessonsTable).values({
+  const [lessonHTML] = await tx.insert(lessonsTable).values({
     courseId: courseFullstack.id,
     chapterId: chapter1.id,
     title: "1. Structure HTML5 de base",
@@ -146,7 +166,7 @@ async function main() {
     type: "text",
   }).returning();
 
-  const [lessonCSS] = await db.insert(lessonsTable).values({
+  const [lessonCSS] = await tx.insert(lessonsTable).values({
     courseId: courseFullstack.id,
     chapterId: chapter1.id,
     title: "2. Sélecteurs CSS & Flexbox",
@@ -157,7 +177,7 @@ async function main() {
     videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   }).returning();
 
-  const [lessonJS] = await db.insert(lessonsTable).values({
+  const [lessonJS] = await tx.insert(lessonsTable).values({
     courseId: courseFullstack.id,
     chapterId: chapter2.id,
     title: "3. Variables, Functions & Arrays",
@@ -168,7 +188,7 @@ async function main() {
   }).returning();
 
   // Create one lesson in AI Course
-  const [lessonAI] = await db.insert(lessonsTable).values({
+  const [lessonAI] = await tx.insert(lessonsTable).values({
     courseId: courseAI.id,
     title: "Prompting Essentials",
     description: "Les bases indispensables pour communiquer avec un LLM.",
@@ -181,14 +201,14 @@ async function main() {
 
   // Enroll Student Yassine to Ahmed's Fullstack Course
   console.log("Creating enrollments...");
-  await db.insert(enrollmentsTable).values({
+  await tx.insert(enrollmentsTable).values({
     userId: studentYassine.id,
     courseId: courseFullstack.id,
   });
 
   // Add partial progress for Yassine (completed 1st lesson)
   console.log("Adding progress...");
-  await db.insert(progressTable).values({
+  await tx.insert(progressTable).values({
     userId: studentYassine.id,
     lessonId: lessonHTML.id,
   });
@@ -197,7 +217,7 @@ async function main() {
 
   // Create Coupon
   console.log("Creating coupons...");
-  await db.insert(couponsTable).values({
+  await tx.insert(couponsTable).values({
     code: "WELCOME50",
     discountPercent: 50,
     maxUses: 100,
@@ -207,7 +227,7 @@ async function main() {
 
   // Create announcements
   console.log("Creating announcements...");
-  await db.insert(announcementsTable).values({
+  await tx.insert(announcementsTable).values({
     authorId: admin.id,
     title: "Bienvenue sur Tamayyuz !",
     content: "Nous sommes fiers de vous présenter notre nouvelle plateforme e-learning innovante.",
@@ -217,7 +237,7 @@ async function main() {
     isPinned: true,
   });
 
-  await db.insert(announcementsTable).values({
+  await tx.insert(announcementsTable).values({
     authorId: coachAhmed.id,
     title: "Promotion Web Fullstack en cours",
     content: "Profitez de 50% de réduction sur la formation fullstack avec le code WELCOME50.",
@@ -228,7 +248,7 @@ async function main() {
 
   // Create Knowledge Base
   console.log("Creating knowledge base...");
-  await db.insert(knowledgeBaseTable).values({
+  await tx.insert(knowledgeBaseTable).values({
     authorId: admin.id,
     title: "Comment devenir formateur sur Tamayyuz",
     content: "Pour devenir formateur (coach), créez simplement un compte 'coach'. Un administrateur passera en revue votre profil pour approbation.",
@@ -236,7 +256,7 @@ async function main() {
     isPublished: true,
   });
 
-  await db.insert(knowledgeBaseTable).values({
+  await tx.insert(knowledgeBaseTable).values({
     authorId: admin.id,
     title: "Politique de remboursement",
     content: "Tout achat de cours sur la plateforme est définitif sauf cas exceptionnel validé par l'administration dans les 48h.",
@@ -246,7 +266,7 @@ async function main() {
 
   // Create Default Certificate Template
   console.log("Creating certificate templates...");
-  await db.insert(certificateTemplatesTable).values({
+  await tx.insert(certificateTemplatesTable).values({
     name: "Modèle Classique Noir & Or",
     description: "Modèle par défaut utilisé pour toutes les certifications.",
     primaryColor: "#111827",
@@ -254,8 +274,14 @@ async function main() {
     isDefault: true,
     isActive: true,
   });
+  }); // end transaction
 
   console.log("Seeding completed successfully!");
+  console.log("");
+  console.log("Generated credentials (save these now, they are not stored anywhere else):");
+  console.log(`  admin:   superadmin@tamayuz.com / ${adminPassword}`);
+  console.log(`  coach:   coach.ahmed@tamayuz.com / ${coachPassword}`);
+  console.log(`  student: student.yassine@tamayuz.com / ${studentPassword}`);
 }
 
 main().catch((err) => {

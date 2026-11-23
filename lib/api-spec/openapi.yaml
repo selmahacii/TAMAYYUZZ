@@ -169,6 +169,10 @@ paths:
           schema:
             type: string
             enum: [newest, popular, price_asc, price_desc]
+        - name: limit
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Public course listing
@@ -1481,10 +1485,17 @@ components:
               type: boolean
             lessonCount:
               type: integer
+            avgRating:
+              type: number
+              nullable: true
+            reviewCount:
+              type: integer
           required:
             - isEnrolled
             - isPurchased
             - lessonCount
+            - avgRating
+            - reviewCount
 
     RecommendedCourse:
       allOf:
@@ -1503,8 +1514,15 @@ components:
           properties:
             lessonCount:
               type: integer
+            avgRating:
+              type: number
+              nullable: true
+            reviewCount:
+              type: integer
           required:
             - lessonCount
+            - avgRating
+            - reviewCount
 
     Lesson:
       type: object

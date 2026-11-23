@@ -7,7 +7,7 @@ async function verifyManualCommission() {
   console.log("🔍 Verifying Manual Commission Creation & Deletion");
   console.log("================================================");
 
-  const token = await login("superadmin@tamayuz.com", "Admin@2026!");
+  const token = await login("superadmin@tamayuz.com", process.env.ADMIN_SEED_PASSWORD ?? (() => { throw new Error("Set ADMIN_SEED_PASSWORD to the password printed by the seed script"); })());
   
   // 1. Get coach users
   console.log("\n[1] Fetching registered users...");

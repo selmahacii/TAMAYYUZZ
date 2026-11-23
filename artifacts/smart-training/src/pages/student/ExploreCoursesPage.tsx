@@ -9,8 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Compass, Search, BookOpen, Clock, Award, Star,
-  CheckCircle2, ArrowRight, ArrowLeft, Filter, Sparkles, Tag, ShieldCheck, User
+  CheckCircle2, ArrowRight, ArrowLeft, Filter, Tag, ShieldCheck, User, Globe
 } from "lucide-react";
+
+const COUNTRY_OPTIONS = [
+  { id: "all", name: { ar: "جميع الدول", fr: "Tous les pays", en: "All Countries" }, flag: "🌐" },
+  { id: "dz", name: { ar: "الجزائر", fr: "Algérie", en: "Algeria" }, flag: "🇩🇿" },
+  { id: "sa", name: { ar: "السعودية", fr: "Arabie Saoudite", en: "Saudi Arabia" }, flag: "🇸🇦" },
+  { id: "eg", name: { ar: "مصر", fr: "Égypte", en: "Egypt" }, flag: "🇪🇬" },
+  { id: "ma", name: { ar: "المغرب", fr: "Maroc", en: "Morocco" }, flag: "🇲🇦" },
+  { id: "tn", name: { ar: "تونس", fr: "Tunisie", en: "Tunisia" }, flag: "🇹🇳" },
+  { id: "kw", name: { ar: "الكويت", fr: "Koweït", en: "Kuwait" }, flag: "🇰🇼" },
+  { id: "jo", name: { ar: "الأردن", fr: "Jordanie", en: "Jordan" }, flag: "🇯🇴" },
+];
 
 export default function StudentExplorePage() {
   const { lang, isRTL } = useI18n();
@@ -19,6 +30,7 @@ export default function StudentExplorePage() {
   const [, setLocation] = useLocation();
 
   const [search, setSearch] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState<string>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedLevel, setSelectedLevel] = useState<string>("all");
   const [selectedPriceFilter, setSelectedPriceFilter] = useState<string>("all");
@@ -90,6 +102,13 @@ export default function StudentExplorePage() {
         const matchesCat = c.category?.toLowerCase().includes(query);
         if (!matchesTitle && !matchesDesc && !matchesCoach && !matchesCat) return false;
       }
+      // Country
+      if (selectedCountry !== "all") {
+        const cCountry = (((c as any).country as string) || "dz").toLowerCase();
+        if (cCountry !== selectedCountry && cCountry !== "all") {
+          return false;
+        }
+      }
       // Category
       if (selectedCategory !== "all" && c.category !== selectedCategory) {
         return false;
@@ -107,7 +126,7 @@ export default function StudentExplorePage() {
       }
       return true;
     });
-  }, [courses, search, selectedCategory, selectedLevel, selectedPriceFilter]);
+  }, [courses, search, selectedCountry, selectedCategory, selectedLevel, selectedPriceFilter]);
 
   const ArrowIcon = isRTL ? ArrowLeft : ArrowRight;
 
@@ -122,54 +141,49 @@ export default function StudentExplorePage() {
     >
       {/* Hero Banner */}
       <div
-        className="relative overflow-hidden rounded-3xl mb-8 p-6 sm:p-8 border border-neutral-800 shadow-xl"
-        style={{
-          background: "linear-gradient(135deg, hsl(258, 80%, 15%) 0%, hsl(258, 65%, 28%) 50%, hsl(285, 60%, 20%) 100%)",
-        }}
+        className="relative overflow-hidden rounded-2xl mb-8 p-6 sm:p-8 border border-[#1b3d2b] shadow-md bg-gradient-to-r from-[#0d2818] via-[#163824] to-[#1d4730]"
       >
-        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-amber-400/20 to-purple-500/0 rounded-full blur-3xl pointer-events-none" />
-
         <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-white text-xs font-bold mb-4 backdrop-blur-md">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-            <span>{{ ar: "دورات تفاعلية وشهادات معتمدة", fr: "Formations certifiantes & accompagnement", en: "Certified courses & mentoring" }[lang]}</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-emerald-200 text-xs font-semibold mb-3">
+            <Award className="w-3.5 h-3.5 text-emerald-300" />
+            <span>{{ ar: "دورات أكاديمية وتطبيقية معتمدة", fr: "Formations certifiantes & accompagnement", en: "Certified courses & mentoring" }[lang]}</span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight mb-3" style={{ fontFamily: "Cairo, sans-serif" }}>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight mb-2" style={{ fontFamily: "Cairo, sans-serif" }}>
             {{
-              ar: "طوّري مهاراتك مع نخبة من أفضل الخبراء الجزائريين",
+              ar: "طوّر مهاراتك مع نخبة من الأساتذة والخبراء",
               fr: "Propulsez vos compétences avec les meilleurs formateurs experts",
               en: "Supercharge your skills with top industry instructors",
             }[lang]}
           </h1>
 
-          <p className="text-white/80 text-sm sm:text-base leading-relaxed mb-6">
+          <p className="text-emerald-100/85 text-xs sm:text-sm leading-relaxed mb-5">
             {{
-              ar: "دروس فيديو تطبيقية، ملفات ومراجع قابلة للتحميل، امتحانات نهائية وشهادات رسمية برمز تحقق فوري.",
-              fr: "Vidéos pratiques, supports PDF téléchargeables, quiz interactifs et certificats d'excellence vérifiables.",
-              en: "Practical video lessons, downloadable PDFs, interactive quizzes, and verifiable certificates.",
+              ar: "محاضرات فيديو متخصصة، مراجع أكاديمية، تقييمات دقيقة وشهادات تدريبية موثقة.",
+              fr: "Vidéos pratiques, supports d'apprentissage téléchargeables, quiz et certificats officiels vérifiables.",
+              en: "Practical lessons, downloadable resources, structured quizzes, and verifiable certificates.",
             }[lang]}
           </p>
 
           {/* Quick Search */}
           <div className="relative flex items-center">
-            <Search className="w-5 h-5 text-white/50 absolute left-4 z-10 pointer-events-none" />
+            <Search className="w-4 h-4 text-emerald-200/60 absolute left-3.5 z-10 pointer-events-none" />
             <Input
               type="text"
               placeholder={{
-                ar: "ابحثي باسم الدورة، المدرب أو المجال (React، ذكاء اصطناعي، تجارة إلكترونية...)",
-                fr: "Rechercher par titre, formateur ou domaine (React, IA, E-commerce, Design, Comptabilité...)",
+                ar: "ابحث باسم الدورة، الأستاذ أو التخصص الأكاديمي...",
+                fr: "Rechercher par titre, formateur ou domaine...",
                 en: "Search by course title, instructor or topic...",
               }[lang]}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-12 pr-4 h-13 rounded-2xl bg-white/15 border-white/25 text-white placeholder:text-white/50 text-sm sm:text-base focus:bg-white/20 focus:border-white/50 transition-all shadow-inner"
+              className="pl-10 pr-4 h-11 rounded-xl bg-white/10 border-white/20 text-white placeholder:text-emerald-100/50 text-xs sm:text-sm focus:bg-white/15 focus:border-white/40 transition-all shadow-inner"
               style={{ fontFamily: "Cairo, sans-serif" }}
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                className="absolute right-4 text-xs font-bold text-white/70 hover:text-white"
+                className="absolute right-3.5 text-xs font-semibold text-white/70 hover:text-white"
               >
                 {{ ar: "مسح", fr: "Effacer", en: "Clear" }[lang]}
               </button>
@@ -178,8 +192,37 @@ export default function StudentExplorePage() {
         </div>
       </div>
 
-      {/* Category Pills & Filters */}
+      {/* Country & Category Filters */}
       <div className="space-y-4 mb-8">
+        {/* Country Filter Bar */}
+        <div className="bg-white border border-neutral-200 rounded-xl p-3 shadow-xs">
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <Globe className="w-4 h-4 text-emerald-800" />
+            <span className="text-xs font-bold text-neutral-800">
+              {{ ar: "اختر بلدك لعرض المحتوى المخصص:", fr: "Filtrer selon le pays cible :", en: "Target Country:" }[lang]}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {COUNTRY_OPTIONS.map((c) => {
+              const isSelected = selectedCountry === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedCountry(c.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all border ${
+                    isSelected
+                      ? "bg-emerald-900 border-emerald-950 text-white shadow-xs font-bold"
+                      : "bg-neutral-50 border-neutral-200 text-neutral-700 hover:bg-neutral-100 hover:border-neutral-300"
+                  }`}
+                >
+                  <span>{c.flag}</span>
+                  <span>{c.name[lang]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Categories Bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           <Button
@@ -187,10 +230,10 @@ export default function StudentExplorePage() {
             variant={selectedCategory === "all" ? "default" : "outline"}
             size="sm"
             className={`rounded-full px-4 text-xs font-bold shrink-0 transition-all ${
-              selectedCategory === "all" ? "bg-black text-white hover:bg-neutral-800" : "bg-white text-neutral-700 hover:bg-neutral-100"
+              selectedCategory === "all" ? "bg-neutral-900 text-white hover:bg-neutral-800" : "bg-white text-neutral-700 hover:bg-neutral-100 border-neutral-200"
             }`}
           >
-            {{ ar: "جميع الفئات", fr: "Toutes les catégories", en: "All Categories" }[lang]} ({courses.length})
+            {{ ar: "جميع التخصصات", fr: "Toutes les catégories", en: "All Categories" }[lang]} ({courses.length})
           </Button>
           {categories.map((cat) => {
             const count = courses.filter((c) => c.category === cat).length;
@@ -201,7 +244,7 @@ export default function StudentExplorePage() {
                 variant={selectedCategory === cat ? "default" : "outline"}
                 size="sm"
                 className={`rounded-full px-4 text-xs font-bold shrink-0 transition-all ${
-                  selectedCategory === cat ? "bg-black text-white hover:bg-neutral-800" : "bg-white text-neutral-700 hover:bg-neutral-100"
+                  selectedCategory === cat ? "bg-neutral-900 text-white hover:bg-neutral-800" : "bg-white text-neutral-700 hover:bg-neutral-100 border-neutral-200"
                 }`}
               >
                 {cat} ({count})
@@ -270,29 +313,30 @@ export default function StudentExplorePage() {
           ))}
         </div>
       ) : filteredCourses.length === 0 ? (
-        <div className="text-center py-20 bg-white border border-border rounded-3xl p-8">
-          <BookOpen className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-foreground mb-2" style={{ fontFamily: "Cairo, sans-serif" }}>
-            {{ ar: "لم يتم العثور على دورات مطابقة", fr: "Aucune formation trouvée", en: "No courses found" }[lang]}
+        <div className="text-center py-20 bg-white border border-neutral-200 rounded-2xl p-8">
+          <BookOpen className="w-14 h-14 text-neutral-400 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-neutral-800 mb-1" style={{ fontFamily: "Cairo, sans-serif" }}>
+            {{ ar: "لم يتم العثور على دورات مطابقة للخيارات المحددة", fr: "Aucune formation trouvée pour ces critères", en: "No courses found" }[lang]}
           </h3>
-          <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
+          <p className="text-neutral-500 text-xs mb-5 max-w-md mx-auto">
             {{
-              ar: "جربي تغيير خيارات البحث أو تصفية الفئات للعثور على دورات أخرى.",
-              fr: "Essayez de modifier votre recherche ou de réinitialiser les filtres.",
-              en: "Try adjusting your search criteria or resetting filters.",
+              ar: "يمكنك تغيير البلد المحدد أو إعادة ضبط تصنيفات الفئات للوصول إلى محتوى إضافي.",
+              fr: "Essayez de modifier votre pays de sélection ou de réinitialiser les filtres.",
+              en: "Try adjusting your country selection or resetting filters.",
             }[lang]}
           </p>
           <Button
             onClick={() => {
               setSearch("");
+              setSelectedCountry("all");
               setSelectedCategory("all");
               setSelectedLevel("all");
               setSelectedPriceFilter("all");
             }}
             variant="outline"
-            className="font-bold text-xs"
+            className="font-bold text-xs border-neutral-300"
           >
-            {{ ar: "إعادة ضبط الفلاتر", fr: "Réinitialiser les filtres", en: "Reset filters" }[lang]}
+            {{ ar: "إعادة ضبط جميع الفلاتر", fr: "Réinitialiser tous les filtres", en: "Reset filters" }[lang]}
           </Button>
         </div>
       ) : (
@@ -304,40 +348,51 @@ export default function StudentExplorePage() {
               ? { ar: "مجاني", fr: "Gratuit", en: "Free" }[lang]
               : `${parseFloat(course.price).toLocaleString("fr-DZ")} DZD`;
 
+            const courseCountry = (((course as any).country as string) || "dz").toLowerCase();
+            const countryMeta = COUNTRY_OPTIONS.find((c) => c.id === courseCountry);
+
             return (
               <div
                 key={course.id}
-                className="group flex flex-col bg-white border border-border/80 hover:border-black/30 rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-300"
+                className="group flex flex-col bg-white border border-neutral-200 hover:border-neutral-400 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-200"
               >
                 {/* Course Image & Badges */}
                 <div className="relative aspect-video w-full overflow-hidden bg-neutral-100">
                   <img
                     src={course.imageUrl || `https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=80`}
                     alt={course.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
 
                   {/* Top Badges */}
-                  <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-                    <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white/90 text-neutral-900 backdrop-blur-md shadow-xs">
-                      {course.category}
-                    </span>
+                  <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-white/95 text-neutral-900 shadow-xs">
+                        {course.category}
+                      </span>
+                      {countryMeta && (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-neutral-900/80 text-white backdrop-blur-xs flex items-center gap-1">
+                          <span>{countryMeta.flag}</span>
+                          <span>{countryMeta.name[lang]}</span>
+                        </span>
+                      )}
+                    </div>
                     {isEnrolled && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-600 text-white shadow-xs">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-700 text-white shadow-xs">
                         <CheckCircle2 className="w-3 h-3" />
-                        {{ ar: "مسجّلة بها", fr: "Inscrit(e)", en: "Enrolled" }[lang]}
+                        {{ ar: "مسجّل", fr: "Inscrit(e)", en: "Enrolled" }[lang]}
                       </span>
                     )}
                   </div>
 
                   {/* Bottom Image Stats */}
-                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs font-semibold">
-                    <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded backdrop-blur-sm">
+                  <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between text-white text-xs font-semibold">
+                    <div className="flex items-center gap-1 bg-black/50 px-2 py-0.5 rounded backdrop-blur-xs">
                       <Clock className="w-3.5 h-3.5 text-amber-300" />
                       <span>{course.durationHours || 12} {{ ar: "ساعة", fr: "heures", en: "hrs" }[lang]}</span>
                     </div>
-                    <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded backdrop-blur-sm text-amber-300 font-bold">
+                    <div className="flex items-center gap-1 bg-black/50 px-2 py-0.5 rounded backdrop-blur-xs text-amber-300 font-bold">
                       <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
                       <span>5.0</span>
                     </div>
@@ -345,38 +400,38 @@ export default function StudentExplorePage() {
                 </div>
 
                 {/* Content */}
-                <div className="p-5 flex-1 flex flex-col justify-between">
+                <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
                     <h3
-                      className="font-bold text-foreground text-base leading-snug line-clamp-2 group-hover:text-neutral-900 transition-colors mb-2"
+                      className="font-bold text-neutral-900 text-sm leading-snug line-clamp-2 mb-1.5"
                       style={{ fontFamily: "Cairo, sans-serif" }}
                     >
                       {course.title}
                     </h3>
 
-                    <p className="text-muted-foreground text-xs line-clamp-2 mb-4 leading-relaxed">
+                    <p className="text-neutral-500 text-xs line-clamp-2 mb-3 leading-relaxed">
                       {course.subtitle || course.description}
                     </p>
 
                     {/* Coach Info */}
-                    <div className="flex items-center gap-2 mb-4 pt-3 border-t border-border/60">
-                      <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold text-neutral-700 shrink-0">
-                        <User className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-2 mb-3 pt-2.5 border-t border-neutral-100">
+                      <div className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-bold text-neutral-700 shrink-0">
+                        <User className="w-3 h-3" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-foreground truncate">{course.coachName || "Formateur Tamayuz"}</p>
-                        <p className="text-[10px] text-muted-foreground">{{ ar: "مدرب معتمد", fr: "Formateur certifié", en: "Certified Coach" }[lang]}</p>
+                        <p className="text-xs font-bold text-neutral-800 truncate">{course.coachName || "Formateur Tamayuz"}</p>
+                        <p className="text-[10px] text-neutral-500">{{ ar: "مدرب معتمد", fr: "Formateur certifié", en: "Certified Coach" }[lang]}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Price & Action Button */}
-                  <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-3">
+                  <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between gap-2">
                     <div>
-                      <p className="text-[10px] uppercase font-bold text-muted-foreground">
-                        {{ ar: "رسوم الدورة", fr: "Tarif", en: "Fee" }[lang]}
+                      <p className="text-[9px] uppercase font-bold text-neutral-400">
+                        {{ ar: "الرسوم", fr: "Tarif", en: "Fee" }[lang]}
                       </p>
-                      <p className={`text-base font-black ${isFree ? "text-emerald-600" : "text-foreground"}`}>
+                      <p className={`text-sm font-bold ${isFree ? "text-emerald-700" : "text-neutral-900"}`}>
                         {priceFormatted}
                       </p>
                     </div>
@@ -385,9 +440,9 @@ export default function StudentExplorePage() {
                       <Button
                         onClick={() => setLocation(`/student/learn/${course.id}`)}
                         size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-xs"
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs gap-1 shadow-xs h-8"
                       >
-                        {{ ar: "متابعة التعلم", fr: "Continuer", en: "Continue" }[lang]}
+                        {{ ar: "متابعة", fr: "Continuer", en: "Continue" }[lang]}
                         <ArrowIcon className="w-3.5 h-3.5" />
                       </Button>
                     ) : isFree ? (
@@ -395,10 +450,10 @@ export default function StudentExplorePage() {
                         onClick={() => handleEnrollFree(course.id, course.title)}
                         disabled={enrollingId === course.id}
                         size="sm"
-                        className="bg-neutral-950 hover:bg-neutral-800 text-white font-bold text-xs gap-1.5 shadow-xs"
+                        className="bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs gap-1 shadow-xs h-8"
                       >
                         {enrollingId === course.id ? (
-                          ({ ar: "جاري التسجيل...", fr: "Inscription...", en: "Enrolling..." }[lang])
+                          ({ ar: "جاري...", fr: "En cours...", en: "Enrolling..." }[lang])
                         ) : (
                           <>
                             {{ ar: "تسجيل مجاني", fr: "S'inscrire", en: "Enroll Free" }[lang]}
@@ -411,9 +466,9 @@ export default function StudentExplorePage() {
                         onClick={() => setLocation(`/course/${course.id}`)}
                         size="sm"
                         variant="outline"
-                        className="border-neutral-300 hover:bg-neutral-900 hover:text-white font-bold text-xs gap-1.5 transition-all"
+                        className="border-neutral-300 hover:bg-neutral-900 hover:text-white font-bold text-xs gap-1 transition-all h-8"
                       >
-                        {{ ar: "عرض التفاصيل", fr: "Détails & Achat", en: "Details" }[lang]}
+                        {{ ar: "التفاصيل", fr: "Détails", en: "Details" }[lang]}
                         <ArrowIcon className="w-3.5 h-3.5" />
                       </Button>
                     )}

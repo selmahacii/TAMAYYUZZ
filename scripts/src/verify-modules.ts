@@ -26,7 +26,7 @@ async function runVerification() {
 
   // 1. Authenticate / Login endpoints
   console.log("\n[1] Testing Authentication & Logins...");
-  const adminCredentials = { email: "superadmin@tamayuz.com", password: "Admin@2026!" };
+  const adminCredentials = { email: "superadmin@tamayuz.com", password: process.env.ADMIN_SEED_PASSWORD ?? (() => { throw new Error("Set ADMIN_SEED_PASSWORD to the password printed by the seed script"); })() };
   const coachCredentials = { email: "coach.ahmed@tamayuz.com", password: "Coach123!" };
   const studentCredentials = { email: "student.yassine@tamayuz.com", password: "Student123!" };
 

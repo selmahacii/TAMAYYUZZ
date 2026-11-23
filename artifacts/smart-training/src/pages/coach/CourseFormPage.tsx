@@ -110,6 +110,7 @@ export default function CourseFormPage() {
   const [audience, setAudience] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [language, setLanguage] = useState("fr");
+  const [country, setCountry] = useState("dz");
   const [category, setCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
   const [level, setLevel] = useState<"beginner" | "intermediate" | "advanced">("beginner");
@@ -138,6 +139,7 @@ export default function CourseFormPage() {
       setAudience(existingCourse.targetAudience ?? []);
       setTags(existingCourse.tags ?? []);
       setLanguage(existingCourse.language ?? "fr");
+      setCountry((existingCourse as any)?.country ?? "dz");
       setCategory(existingCourse.category);
       setLevel(existingCourse.level as any);
       setDurationHours(existingCourse.durationHours ?? null);
@@ -206,6 +208,7 @@ export default function CourseFormPage() {
     subtitle: subtitle.trim() || null,
     description: overview.trim(),
     category: category === "__custom__" ? customCategory.trim() : category,
+    country,
     imageUrl: imageUrl || null,
     promoVideoUrl: promoVideoUrl?.trim() || null,
     faq: faqList.filter((f) => f.question?.trim() && f.answer?.trim()),
@@ -477,7 +480,7 @@ export default function CourseFormPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="font-bold text-foreground text-xs uppercase tracking-wider block mb-1.5">{{ ar: "الفئة", fr: "Catégorie", en: "Category" }[lang]} *</label>
-                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full h-10 px-3 bg-white border border-border rounded-lg text-foreground text-sm">
+                <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full h-10 px-3 bg-white border border-border rounded-lg text-foreground text-sm font-medium">
                   <option value="">{{ ar: "اختاري...", fr: "Choisir...", en: "Choose..." }[lang]}</option>
                   {(categories ?? []).map((cat) => <option key={cat} value={cat}>{cat}</option>)}
                   <option value="__custom__">{{ ar: "أخرى (تحديد)", fr: "Autre (préciser)", en: "Other (specify)" }[lang]}</option>
@@ -487,8 +490,21 @@ export default function CourseFormPage() {
                 )}
               </div>
               <div>
+                <label className="font-bold text-foreground text-xs uppercase tracking-wider block mb-1.5">{{ ar: "البلد المستهدف", fr: "Pays cible", en: "Target Country" }[lang]} *</label>
+                <select value={country} onChange={(e) => setCountry(e.target.value)} className="w-full h-10 px-3 bg-white border border-border rounded-lg text-foreground text-sm font-medium">
+                  <option value="dz">{{ ar: "الجزائر", fr: "Algérie", en: "Algeria" }[lang]}</option>
+                  <option value="sa">{{ ar: "المملكة العربية السعودية", fr: "Arabie Saoudite", en: "Saudi Arabia" }[lang]}</option>
+                  <option value="eg">{{ ar: "جمهورية مصر العربية", fr: "Égypte", en: "Egypt" }[lang]}</option>
+                  <option value="ma">{{ ar: "المملكة المغربية", fr: "Maroc", en: "Morocco" }[lang]}</option>
+                  <option value="tn">{{ ar: "الجمهورية التونسية", fr: "Tunisie", en: "Tunisia" }[lang]}</option>
+                  <option value="kw">{{ ar: "دولة الكويت", fr: "Koweït", en: "Kuwait" }[lang]}</option>
+                  <option value="jo">{{ ar: "المملكة الأردنية الهاشمية", fr: "Jordanie", en: "Jordan" }[lang]}</option>
+                  <option value="all">{{ ar: "دولي / لجميع البلدان", fr: "International / Tous pays", en: "International / All" }[lang]}</option>
+                </select>
+              </div>
+              <div>
                 <label className="font-bold text-foreground text-xs uppercase tracking-wider block mb-1.5">{{ ar: "المستوى", fr: "Niveau", en: "Level" }[lang]} *</label>
-                <select value={level} onChange={(e) => setLevel(e.target.value as any)} className="w-full h-10 px-3 bg-white border border-border rounded-lg text-foreground text-sm">
+                <select value={level} onChange={(e) => setLevel(e.target.value as any)} className="w-full h-10 px-3 bg-white border border-border rounded-lg text-foreground text-sm font-medium">
                   <option value="beginner">{{ ar: "مبتدئ", fr: "Débutant", en: "Beginner" }[lang]}</option>
                   <option value="intermediate">{{ ar: "متوسط", fr: "Intermédiaire", en: "Intermediate" }[lang]}</option>
                   <option value="advanced">{{ ar: "متقدم", fr: "Avancé", en: "Advanced" }[lang]}</option>
@@ -496,7 +512,7 @@ export default function CourseFormPage() {
               </div>
               <div>
                 <label className="font-bold text-foreground text-xs uppercase tracking-wider block mb-1.5">{{ ar: "لغة الدورة", fr: "Langue de la formation", en: "Course language" }[lang]}</label>
-                <select value={language} onChange={(e) => setLanguage(e.target.value)} className="w-full h-10 px-3 bg-white border border-border rounded-lg text-foreground text-sm">
+                <select value={language} onChange={(e) => setLanguage(e.target.value)} className="w-full h-10 px-3 bg-white border border-border rounded-lg text-foreground text-sm font-medium">
                   <option value="fr">Français</option>
                   <option value="ar">العربية</option>
                   <option value="en">English</option>

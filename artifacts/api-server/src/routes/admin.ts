@@ -590,14 +590,16 @@ router.post("/admin/purchases/:id/verify", requireRole("admin"), async (req: Aut
     }).where(eq(invoicesTable.purchaseId, purchaseId));
 
     // 4. Create coach commission
-    const commissionAmount = (parseFloat(purchase.amount) * 0.70).toFixed(2);
+    const settings = await getPlatformSettings();
+    const ratePercent = parseFloat(settings.defaultCommissionRate) || 70;
+    const commissionAmount = (parseFloat(purchase.amount) * (ratePercent / 100)).toFixed(2);
     await db.insert(commissionsTable).values({
       coachId: course.coachId,
       purchaseId: purchase.id,
       courseId: course.id,
       amount: commissionAmount,
       currency: purchase.currency,
-      ratePercent: "70",
+      ratePercent: ratePercent.toFixed(2),
       status: "pending",
       isPaid: false,
     });

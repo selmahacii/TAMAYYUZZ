@@ -318,18 +318,39 @@ export default {
         if ((url.pathname === "/api/courses" || url.pathname === "/api/marketplace") && request.method === "GET") {
           const authUser = await getAuthUser(request);
           const userId = authUser ? authUser.id : 0;
+          const countryParam = url.searchParams.get("country");
+          const categoryParam = url.searchParams.get("category");
+          const searchParam = url.searchParams.get("search");
 
-          const courses = await queryNeon(
-            `SELECT c.*, u.name as coach_name, count(DISTINCT e.id)::int as enrollment_count,
+          let sql = `
+            SELECT c.*, u.name as coach_name, count(DISTINCT e.id)::int as enrollment_count,
                     EXISTS(SELECT 1 FROM enrollments WHERE user_id = $1 AND course_id = c.id) as is_enrolled
-             FROM courses c
-             JOIN users u ON c.coach_id = u.id
-             LEFT JOIN enrollments e ON c.id = e.course_id
-             WHERE c.is_published = true
-             GROUP BY c.id, u.id
-             ORDER BY c.created_at;`,
-            [userId]
-          );
+            FROM courses c
+            JOIN users u ON c.coach_id = u.id
+            LEFT JOIN enrollments e ON c.id = e.course_id
+            WHERE c.is_published = true
+          `;
+          const params = [userId];
+
+          if (countryParam && countryParam !== "all" && countryParam !== "other") {
+            params.push(countryParam.toLowerCase());
+            sql += ` AND (LOWER(c.country) = $${params.length} OR c.country = 'all')`;
+          }
+          if (categoryParam && categoryParam !== "all") {
+            params.push(categoryParam);
+            sql += ` AND c.category = $${params.length}`;
+          }
+          if (searchParam && searchParam.trim()) {
+            params.push(`%${searchParam.trim()}%`);
+            sql += ` AND (c.title ILIKE $${params.length} OR c.description ILIKE $${params.length})`;
+          }
+
+          sql += `
+            GROUP BY c.id, u.id
+            ORDER BY c.created_at;
+          `;
+
+          const courses = await queryNeon(sql, params);
 
           return jsonResponse(
             courses.map((c) => ({
@@ -338,6 +359,8 @@ export default {
               subtitle: c.subtitle ?? null,
               description: c.description,
               category: c.category,
+            country: c.country ?? "dz",
+              country: c.country ?? "dz",
               imageUrl: c.image_url ?? null,
               coachId: c.coach_id,
               coachName: c.coach_name,
@@ -365,9 +388,15 @@ export default {
 
         // GET /api/courses/categories
         if (url.pathname === "/api/courses/categories" && request.method === "GET") {
-          const rows = await queryNeon("SELECT DISTINCT category FROM courses WHERE is_published = true;");
-          const cats = rows.map((r) => r.category);
-          return jsonResponse(cats.length > 0 ? cats : ["Business", "Marketing", "Finance", "Technology", "Design"]);
+          const rows = await queryNeon(`
+            SELECT DISTINCT name FROM (
+              SELECT name FROM categories
+              UNION
+              SELECT category as name FROM courses WHERE is_published = true
+            ) t WHERE name IS NOT NULL AND TRIM(name) != '' ORDER BY name ASC;
+          `);
+          const cats = rows.map((r) => r.name);
+          return jsonResponse(cats.length > 0 ? cats : ["Business", "Marketing", "Finance", "Technology", "Design", "Personal Development", "Entrepreneuriat", "Academic Research"]);
         }
 
         // GET /api/courses/recommended
@@ -388,6 +417,7 @@ export default {
               subtitle: c.subtitle ?? null,
               description: c.description,
               category: c.category,
+            country: c.country ?? "dz",
               imageUrl: c.image_url ?? null,
               coachId: c.coach_id,
               coachName: c.coach_name,
@@ -428,6 +458,7 @@ export default {
               subtitle: c.subtitle ?? null,
               description: c.description,
               category: c.category,
+            country: c.country ?? "dz",
               imageUrl: c.image_url ?? null,
               coachId: c.coach_id,
               coachName: c.coach_name,
@@ -465,7 +496,7 @@ export default {
           const {
             title, subtitle, description, category, level, price, isFree, imageUrl,
             durationHours, tags, learningObjectives, requirements, targetAudience,
-            certificateTemplateId, finalExam, faq, promoVideoUrl, language
+            certificateTemplateId, finalExam, faq, promoVideoUrl, language, country
           } = body;
 
           if (!title?.trim() || !description?.trim() || !category) {
@@ -477,12 +508,12 @@ export default {
               title, subtitle, description, category, level, price, is_free, currency,
               image_url, duration_hours, tags, learning_objectives, requirements, target_audience,
               coach_id, is_published, certificate_template_id, final_exam, language,
-              faq, promo_video_url, created_at, updated_at
+              faq, promo_video_url, country, created_at, updated_at
             ) VALUES (
               $1, $2, $3, $4, $5, $6, $7, 'DZD',
               $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb,
               $14, true, $15, $16::jsonb, $17,
-              $18::jsonb, $19, NOW(), NOW()
+              $18::jsonb, $19, $20, NOW(), NOW()
             ) RETURNING *;
           `, [
             title.trim(), subtitle?.trim() || null, description.trim(), category,
@@ -492,7 +523,8 @@ export default {
             JSON.stringify(requirements || []), JSON.stringify(targetAudience || []),
             user.id, certificateTemplateId || null, finalExam ? JSON.stringify(finalExam) : null,
             language || "fr",
-            JSON.stringify(faq || []), promoVideoUrl || null
+            JSON.stringify(faq || []), promoVideoUrl || null,
+            country || "dz"
           ]);
 
           const c = inserted[0];
@@ -502,6 +534,8 @@ export default {
             subtitle: c.subtitle,
             description: c.description,
             category: c.category,
+            country: c.country ?? "dz",
+            country: c.country ?? "dz",
             imageUrl: c.image_url,
             coachId: c.coach_id,
             coachName: user.name,
@@ -550,8 +584,9 @@ export default {
                 language = COALESCE($21, language),
                 faq = CASE WHEN $22::boolean THEN $23::jsonb ELSE faq END,
                 promo_video_url = CASE WHEN $24::boolean THEN $25 ELSE promo_video_url END,
+                country = COALESCE($26, country),
                 updated_at = NOW()
-            WHERE id = $26 RETURNING *;
+            WHERE id = $27 RETURNING *;
           `, [
             body.title?.trim() || null, body.subtitle?.trim() || null, body.description?.trim() || null,
             body.category || null, body.level || null, body.price ? String(body.price) : null,
@@ -565,12 +600,14 @@ export default {
             body.language || null,
             body.faq !== undefined, body.faq ? JSON.stringify(body.faq) : null,
             body.promoVideoUrl !== undefined, body.promoVideoUrl || null,
+            body.country || null,
             courseId
           ]);
 
           const c = updated[0];
           return jsonResponse({
             ...c,
+            country: c.country ?? "dz",
             faq: c.faq ?? [],
             promoVideoUrl: c.promo_video_url ?? null,
             learningObjectives: c.learning_objectives ?? [],
@@ -744,6 +781,7 @@ export default {
             subtitle: c.subtitle ?? null,
             description: c.description,
             category: c.category,
+            country: c.country ?? "dz",
             imageUrl: c.image_url ?? null,
             coachId: c.coach_id,
             coachName: c.coach_name,
@@ -1907,6 +1945,7 @@ export default {
             title: c.title,
             subtitle: c.subtitle || null,
             category: c.category,
+            country: c.country ?? "dz",
             level: c.level,
             price: c.price,
             currency: c.currency || "DZD",
@@ -2209,6 +2248,7 @@ export default {
             isPublished: c.is_published,
             level: c.level,
             category: c.category,
+            country: c.country ?? "dz",
             learningOutcomes: c.learning_outcomes ?? [],
             prerequisites: c.prerequisites ?? [],
             targetAudience: c.target_audience ?? [],
@@ -2378,6 +2418,7 @@ export default {
               subtitle: c.subtitle || null,
               description: c.description || null,
               category: c.category,
+            country: c.country ?? "dz",
               level: c.level,
               price: c.price,
               currency: c.currency || "DZD",

@@ -1,12 +1,20 @@
 import { Router, type IRouter } from "express";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and, gt } from "drizzle-orm";
 import { db, usersTable, auditLogsTable } from "@workspace/db";
 import bcrypt from "bcrypt";
+import { randomBytes, createHash } from "node:crypto";
 import {
   RegisterBody,
   LoginBody,
 } from "@workspace/api-zod";
 import { signToken, requireAuth, revokeToken, type AuthenticatedRequest } from "../middlewares/auth";
+import { sendPasswordResetEmail } from "../lib/mailer";
+
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function hashResetToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 const router: IRouter = Router();
 
@@ -165,52 +173,97 @@ router.post("/auth/revoke-sessions", requireAuth, async (req: AuthenticatedReque
   res.json({ message: "All sessions have been revoked successfully" });
 });
 
-// Forgot password / Reset simulation (since no external SMTP is configured)
+// Step 1: request a reset — always responds the same way regardless of whether the
+// email exists, and the actual token is only ever delivered out-of-band (email), never in the response.
 router.post("/auth/forgot-password", async (req, res): Promise<void> => {
-  const { email, newPassword } = req.body as { email?: string; newPassword?: string };
+  const { email } = req.body as { email?: string };
   if (!email || !email.trim()) {
     res.status(400).json({ error: "L'adresse email est requise" });
     return;
   }
 
+  const genericResponse = { message: "Si cet email existe, un lien de réinitialisation vient de lui être envoyé." };
+
   const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.trim()));
   if (!user) {
-    // Security best practice: don't reveal email existence, but here simulate confirmation
-    res.json({ message: "Si cet email existe, les instructions de réinitialisation ont été générées." });
+    res.json(genericResponse);
     return;
   }
 
-  if (newPassword && newPassword.length >= 6) {
-    const passwordHash = await bcrypt.hash(newPassword, 10);
-    await db.update(usersTable)
-      .set({
-        passwordHash,
-        tokenVersion: sql`${usersTable.tokenVersion} + 1`,
-      })
-      .where(eq(usersTable.id, user.id));
+  const token = randomBytes(32).toString("hex");
+  await db.update(usersTable)
+    .set({
+      passwordResetTokenHash: hashResetToken(token),
+      passwordResetExpiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+    })
+    .where(eq(usersTable.id, user.id));
 
-    try {
-      await db.insert(auditLogsTable).values({
-        userId: user.id,
-        action: "RESET_PASSWORD",
-        entity: "user",
-        entityId: user.id,
-        details: { email: user.email },
-        ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
-        userAgent: req.headers["user-agent"] || null,
-      });
-    } catch (e) {
-      console.error("Audit log error on reset password:", e);
-    }
+  try {
+    await sendPasswordResetEmail(user.email, token);
+  } catch (e) {
+    console.error("Failed to send password reset email:", e);
+  }
 
-    res.json({ message: "Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter." });
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: user.id,
+      action: "REQUEST_PASSWORD_RESET",
+      entity: "user",
+      entityId: user.id,
+      details: { email: user.email },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on request password reset:", e);
+  }
+
+  res.json(genericResponse);
+});
+
+// Step 2: consume the token received by email to actually set the new password.
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const { token, newPassword } = req.body as { token?: string; newPassword?: string };
+  if (!token || !newPassword || newPassword.length < 6) {
+    res.status(400).json({ error: "Jeton et nouveau mot de passe (min 6 caractères) requis" });
     return;
   }
 
-  res.json({
-    message: "Email validé. Veuillez fournir votre nouveau mot de passe.",
-    userExists: true,
-  });
+  const tokenHash = hashResetToken(token);
+  const [user] = await db.select().from(usersTable).where(
+    and(eq(usersTable.passwordResetTokenHash, tokenHash), gt(usersTable.passwordResetExpiresAt, new Date())),
+  );
+
+  if (!user) {
+    res.status(400).json({ error: "Ce lien de réinitialisation est invalide ou a expiré" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await db.update(usersTable)
+    .set({
+      passwordHash,
+      passwordResetTokenHash: null,
+      passwordResetExpiresAt: null,
+      tokenVersion: sql`${usersTable.tokenVersion} + 1`,
+    })
+    .where(eq(usersTable.id, user.id));
+
+  try {
+    await db.insert(auditLogsTable).values({
+      userId: user.id,
+      action: "RESET_PASSWORD",
+      entity: "user",
+      entityId: user.id,
+      details: { email: user.email },
+      ipAddress: (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+  } catch (e) {
+    console.error("Audit log error on reset password:", e);
+  }
+
+  res.json({ message: "Votre mot de passe a été réinitialisé avec succès. Vous pouvez maintenant vous connecter." });
 });
 
 // Authenticated password change
