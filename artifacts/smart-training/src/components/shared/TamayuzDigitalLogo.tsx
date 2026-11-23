@@ -1,3 +1,5 @@
+import { useI18n } from "@/i18n";
+
 interface LogoProps {
   className?: string;
   showText?: boolean;
@@ -5,6 +7,20 @@ interface LogoProps {
 }
 
 export function TamayuzDigitalLogo({ className = "h-10", showText = true, light = false }: LogoProps) {
+  const { lang, isRTL } = useI18n();
+
+  const brandName = {
+    ar: "منصة التميز الرقمي",
+    fr: "Plateforme Numérique Tamayuz",
+    en: "Digital Tamayuz Platform",
+  }[lang];
+
+  const brandMotto = {
+    ar: "معرفة · تقدم · توجيه",
+    fr: "Savoir · Progrès · Mentorat",
+    en: "Knowledge · Progress · Guidance",
+  }[lang];
+
   return (
     <div className={`flex items-center gap-2.5 ${light ? "text-white" : "text-[#0c3b2e]"}`}>
       {/* Official Emblem: Book with sprouting wisdom branches */}
@@ -46,20 +62,20 @@ export function TamayuzDigitalLogo({ className = "h-10", showText = true, light 
       </svg>
 
       {showText && (
-        <div className="flex flex-col text-right leading-tight">
+        <div className={`flex flex-col leading-tight ${isRTL ? "text-right" : "text-left"}`}>
           <span
             className="text-base font-black tracking-tight"
-            style={{ fontFamily: "Cairo, sans-serif" }}
+            style={{ fontFamily: isRTL ? "Cairo, sans-serif" : "inherit" }}
           >
-            منصة التميز الرقمي
+            {brandName}
           </span>
           <span
             className={`text-[10px] font-semibold tracking-wider ${
               light ? "text-neutral-300" : "text-[#1b5e43]"
             }`}
-            style={{ fontFamily: "Cairo, sans-serif" }}
+            style={{ fontFamily: isRTL ? "Cairo, sans-serif" : "inherit" }}
           >
-            معرفة · تقدم · توجيه
+            {brandMotto}
           </span>
         </div>
       )}
