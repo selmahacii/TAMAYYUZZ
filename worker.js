@@ -341,8 +341,14 @@ export default {
             sql += ` AND c.category = $${params.length}`;
           }
           if (searchParam && searchParam.trim()) {
-            params.push(`%${searchParam.trim()}%`);
-            sql += ` AND (c.title ILIKE $${params.length} OR c.description ILIKE $${params.length})`;
+            const rawTerm = searchParam.trim();
+            const normTerm = rawTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            params.push(`%${rawTerm}%`);
+            params.push(`%${normTerm}%`);
+            sql += ` AND (
+              c.title ILIKE $${params.length - 1} OR c.description ILIKE $${params.length - 1} OR c.category ILIKE $${params.length - 1} OR u.name ILIKE $${params.length - 1}
+              OR TRANSLATE(LOWER(c.title || ' ' || COALESCE(c.description, '') || ' ' || c.category || ' ' || u.name), 'éèêëàâäîïôöùûüçÉÈÊËÀÂÄÎÏÔÖÙÛÜÇ', 'eeeeaaaiioouuuceeeeaaaiioouuuc') ILIKE $${params.length}
+            )`;
           }
 
           sql += `

@@ -275,7 +275,7 @@ export default function StudentHomePage() {
           {/* Main Area: 4 Pillar Cards + Featured Courses Grid */}
           <main className={`flex-1 w-full space-y-6 ${isRTL ? "order-2 lg:order-1" : "order-2 lg:order-2"}`}>
             {/* Top 4 3D Pillar Cards */}
-            <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Card 1: التميز التعليمي (Sky Blue Gradient) */}
               <div className="bg-gradient-to-b from-[#eaf4ff] to-[#d6ebff] border border-[#bfe0fc] rounded-2xl p-4 flex flex-col justify-between shadow-2xs hover:shadow-md transition-shadow relative overflow-hidden group">
                 <div>
@@ -448,7 +448,7 @@ export default function StudentHomePage() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {displayedCourses.slice(0, 4).map((course: any) => {
                     const cCountry = (course.country || "dz").toLowerCase();
                     const flag = countryFlagMap[cCountry] ?? countryFlagMap["dz"];
