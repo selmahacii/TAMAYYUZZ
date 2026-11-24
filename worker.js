@@ -574,17 +574,18 @@ export default {
                 image_url = COALESCE($8, image_url),
                 duration_hours = COALESCE($9, duration_hours),
                 certificate_template_id = COALESCE($10, certificate_template_id),
-                final_exam = CASE WHEN $11::boolean THEN $12::jsonb ELSE final_exam END,
-                tags = CASE WHEN $13::boolean THEN $14::jsonb ELSE tags END,
-                learning_objectives = CASE WHEN $15::boolean THEN $16::jsonb ELSE learning_objectives END,
-                requirements = CASE WHEN $17::boolean THEN $18::jsonb ELSE requirements END,
-                target_audience = CASE WHEN $19::boolean THEN $20::jsonb ELSE target_audience END,
+                final_exam = CASE WHEN $11::boolean THEN $12::json ELSE final_exam END,
+                tags = CASE WHEN $13::boolean THEN $14::json ELSE tags END,
+                learning_objectives = CASE WHEN $15::boolean THEN $16::json ELSE learning_objectives END,
+                requirements = CASE WHEN $17::boolean THEN $18::json ELSE requirements END,
+                target_audience = CASE WHEN $19::boolean THEN $20::json ELSE target_audience END,
                 language = COALESCE($21, language),
-                faq = CASE WHEN $22::boolean THEN $23::jsonb ELSE faq END,
+                faq = CASE WHEN $22::boolean THEN $23::json ELSE faq END,
                 promo_video_url = CASE WHEN $24::boolean THEN $25 ELSE promo_video_url END,
                 country = COALESCE($26, country),
+                is_published = COALESCE($27, is_published),
                 updated_at = NOW()
-            WHERE id = $27 RETURNING *;
+            WHERE id = $28 RETURNING *;
           `, [
             body.title?.trim() || null, body.subtitle?.trim() || null, body.description?.trim() || null,
             body.category || null, body.level || null, body.price ? String(body.price) : null,
@@ -599,6 +600,7 @@ export default {
             body.faq !== undefined, body.faq ? JSON.stringify(body.faq) : null,
             body.promoVideoUrl !== undefined, body.promoVideoUrl || null,
             body.country || null,
+            body.isPublished !== undefined ? body.isPublished : null,
             courseId
           ]);
 
@@ -606,6 +608,7 @@ export default {
           return jsonResponse({
             ...c,
             country: c.country ?? "dz",
+            isPublished: c.is_published,
             faq: c.faq ?? [],
             promoVideoUrl: c.promo_video_url ?? null,
             learningObjectives: c.learning_objectives ?? [],
@@ -1026,7 +1029,7 @@ export default {
                 type = COALESCE($7, type),
                 video_url = COALESCE($8, video_url),
                 pdf_url = COALESCE($9, pdf_url),
-                quiz_data = CASE WHEN $10::boolean THEN $11::jsonb ELSE quiz_data END
+                quiz_data = CASE WHEN $10::boolean THEN $11::json ELSE quiz_data END
             WHERE id = $12 AND course_id = $13 RETURNING *;
           `, [
             body.title?.trim() || null,
